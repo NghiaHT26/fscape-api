@@ -1,7 +1,5 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-const Building = require('./building.model');
-const Facility = require('./facility.model');
 
 const BuildingFacility = sequelize.define('BuildingFacility', {
   id: {
@@ -26,6 +24,7 @@ const BuildingFacility = sequelize.define('BuildingFacility', {
 }, {
   tableName: 'building_facilities',
   timestamps: true,
+  updatedAt: false, 
   underscored: true,
   indexes: [
     {
@@ -35,22 +34,9 @@ const BuildingFacility = sequelize.define('BuildingFacility', {
   ]
 });
 
-/* ===== RELATIONS (Many-to-Many) ===== */
-Building.belongsToMany(Facility, { 
-  through: BuildingFacility, 
-  foreignKey: 'building_id', 
-  otherKey: 'facility_id',
-  as: 'facilities' 
-});
-
-Facility.belongsToMany(Building, { 
-  through: BuildingFacility, 
-  foreignKey: 'facility_id', 
-  otherKey: 'building_id',
-  as: 'buildings' 
-});
-
-BuildingFacility.belongsTo(Building, { foreignKey: 'building_id' });
-BuildingFacility.belongsTo(Facility, { foreignKey: 'facility_id' });
+BuildingFacility.associate = (models) => {
+  BuildingFacility.belongsTo(models.Building, { foreignKey: 'building_id' });
+  BuildingFacility.belongsTo(models.Facility, { foreignKey: 'facility_id' });
+};
 
 module.exports = BuildingFacility;

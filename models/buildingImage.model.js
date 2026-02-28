@@ -1,6 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-const Building = require('./building.model');
+
+// const Building = require('./building.model');
 
 const BuildingImage = sequelize.define('BuildingImage', {
   id: {
@@ -10,7 +11,11 @@ const BuildingImage = sequelize.define('BuildingImage', {
   },
   building_id: {
     type: DataTypes.UUID,
-    allowNull: false
+    allowNull: false,
+    references: { 
+      model: 'buildings',
+      key: 'id' 
+    }
   },
   image_url: {
     type: DataTypes.TEXT,
@@ -19,11 +24,15 @@ const BuildingImage = sequelize.define('BuildingImage', {
 }, {
   tableName: 'building_images',
   timestamps: true,
+  updatedAt: false,
   underscored: true
 });
 
-/* Relations */
-Building.hasMany(BuildingImage, { foreignKey: 'building_id', as: 'images', onDelete: 'CASCADE' });
-BuildingImage.belongsTo(Building, { foreignKey: 'building_id', as: 'building' });
+BuildingImage.associate = (models) => {
+  BuildingImage.belongsTo(models.Building, { 
+    foreignKey: 'building_id', 
+    as: 'building' 
+  });
+};
 
 module.exports = BuildingImage;

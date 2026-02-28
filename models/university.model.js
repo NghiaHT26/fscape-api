@@ -1,6 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-const Location = require('./location.model'); // Đã đổi từ city.model
+
+// const Location = require('./location.model');
 
 const University = sequelize.define(
   'University',
@@ -47,15 +48,11 @@ const University = sequelize.define(
   }
 );
 
-/* ===== ASSOCIATIONS ===== */
-University.belongsTo(Location, {
-  foreignKey: 'location_id',
-  as: 'location'
-});
-
-Location.hasMany(University, {
-  foreignKey: 'location_id',
-  as: 'universities'
-});
+University.associate = (models) => {
+  University.belongsTo(models.Location, {
+    foreignKey: 'location_id',
+    as: 'location'
+  });
+};
 
 module.exports = University;
