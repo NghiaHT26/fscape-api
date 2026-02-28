@@ -1,21 +1,19 @@
-const { Op } = require('sequelize')
-const Location = require('../models/location.model')
-const Building = require('../models/building.model')
-const University = require('../models/university.model')
+const { Op } = require('sequelize');
+const { sequelize } = require('../config/db');
 
 /**
- * Lấy danh sách địa điểm có phân trang, lọc và tìm kiếm
+ * Lấy danh sách địa điểm
  */
 const getAllLocations = async ({ page = 1, limit = 10, search, is_active } = {}) => {
-    const offset = (page - 1) * limit
-    const where = {}
-
-    // Tìm kiếm theo tên khu vực
-    if (search) where.name = { [Op.iLike]: `%${search}%` }
+    // LẤY MODEL Ở ĐÂY ĐỂ ĐẢM BẢO CHÚNG ĐÃ ĐƯỢC KHỞI TẠO
+    const { Location, Building, University } = sequelize.models;
     
-    // Lọc theo trạng thái hoạt động
+    const offset = (page - 1) * limit;
+    const where = {};
+
+    if (search) where.name = { [Op.iLike]: `%${search}%` };
     if (is_active !== undefined) {
-        where.is_active = is_active === 'true' || is_active === true
+        where.is_active = is_active === 'true' || is_active === true;
     }
 
     const { count, rows } = await Location.findAndCountAll({
@@ -28,7 +26,7 @@ const getAllLocations = async ({ page = 1, limit = 10, search, is_active } = {})
         offset: Number(offset),
         distinct: true,
         order: [['name', 'ASC']]
-    })
+    });
 
     return {
         total: count,
@@ -36,73 +34,80 @@ const getAllLocations = async ({ page = 1, limit = 10, search, is_active } = {})
         limit: Number(limit),
         totalPages: Math.ceil(count / limit),
         data: rows
-    }
-}
+    };
+};
 
 /**
- * Lấy chi tiết 1 địa điểm theo ID
+ * Lấy chi tiết 1 địa điểm
  */
 const getLocationById = async (id) => {
+    const { Location, Building, University } = sequelize.models;
+    
     const location = await Location.findByPk(id, {
         include: [
             { model: Building, as: 'buildings' },
             { model: University, as: 'universities' }
         ]
-    })
-    if (!location) throw { status: 404, message: 'Location not found' }
-    return location
-}
+    });
+
+    if (!location) throw { status: 404, message: 'Location not found' };
+    return location;
+};
 
 /**
  * Tạo địa điểm mới
  */
 const createLocation = async (data) => {
-    const { name } = data
+    const { Location } = sequelize.models;
+    const { name } = data;
     
-    // Kiểm tra tên địa điểm duy nhất
-    const existing = await Location.findOne({ where: { name } })
-    if (existing) throw { status: 409, message: `Location "${name}" already exists` }
+    const existing = await Location.findOne({ where: { name } });
+    if (existing) throw { status: 409, message: `Location "${name}" already exists` };
 
-    return await Location.create(data)
-}
+    return await Location.create(data);
+};
 
 /**
- * Cập nhật thông tin địa điểm
+ * Cập nhật địa điểm
  */
 const updateLocation = async (id, data) => {
-    const location = await Location.findByPk(id)
-    if (!location) throw { status: 404, message: 'Location not found' }
+    const { Location } = sequelize.models;
+    const location = await Location.findByPk(id);
+    if (!location) throw { status: 404, message: 'Location not found' };
 
-    // Kiểm tra trùng tên khi đổi tên
     if (data.name && data.name !== location.name) {
         const duplicate = await Location.findOne({ 
             where: { name: data.name, id: { [Op.ne]: id } } 
-        })
-        if (duplicate) throw { status: 409, message: `Location "${data.name}" already exists` }
+        });
+        if (duplicate) throw { status: 409, message: `Location "${data.name}" already exists` };
     }
 
-    return await location.update(data)
-}
+    return await location.update(data);
+};
 
 /**
- * Xóa địa điểm (Chỉ xóa khi không có tòa nhà liên quan)
+ * Xóa địa điểm
  */
 const deleteLocation = async (id) => {
-    const location = await Location.findByPk(id)
-    if (!location) throw { status: 404, message: 'Location not found' }
+    const { Location, Building, University } = sequelize.models;
+    const location = await Location.findByPk(id);
+    if (!location) throw { status: 404, message: 'Location not found' };
     
-    // Kiểm tra ràng buộc khóa ngoại với bảng buildings thông qua location_id
-    const buildingsCount = await Building.count({ where: { location_id: id } })
-    if (buildingsCount > 0) {
+    const [buildingsCount, universitiesCount] = await Promise.all([
+        Building.count({ where: { location_id: id } }),
+        University.count({ where: { location_id: id } })
+    ]);
+
+    if (buildingsCount > 0 || universitiesCount > 0) {
         throw { 
             status: 400, 
-            message: 'Cannot delete location with associated buildings. Please remove buildings first.' 
-        }
+            message: 'Cannot delete location: Associated data exists.' 
+        };
     }
 
-    await location.destroy()
-    return { message: `Location "${location.name}" deleted successfully` }
-}
+    await location.destroy();
+    return { message: `Location "${location.name}" deleted successfully` };
+};
 
 module.exports = { 
     getAllLocations, 
@@ -110,4 +115,4 @@ module.exports = {
     createLocation, 
     updateLocation, 
     deleteLocation 
-}
+};

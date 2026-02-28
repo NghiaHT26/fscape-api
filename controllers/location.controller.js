@@ -1,84 +1,122 @@
-const { Op } = require('sequelize')
-const Location = require('../models/location.model')
-const Building = require('../models/building.model')
-const University = require('../models/university.model')
+const locationService = require('../services/location.service');
 
 /**
- * Lấy danh sách địa điểm kèm số lượng Building và University liên quan
+ * Lấy danh sách khu vực (Kèm phân trang và lọc)
  */
-const getAllLocations = async ({ page = 1, limit = 10, search, is_active } = {}) => {
-    const offset = (page - 1) * limit
-    const where = {}
+const getAllLocations = async (req, res) => {
+    try {
+        const { page, limit, search, is_active } = req.query;
+        
+        const result = await locationService.getAllLocations({
+            page,
+            limit,
+            search,
+            is_active
+        });
 
-    if (search) where.name = { [Op.iLike]: `%${search}%` }
-    if (is_active !== undefined) where.is_active = is_active === 'true'
-
-    const { count, rows } = await Location.findAndCountAll({
-        where,
-        include: [
-            { model: Building, as: 'buildings', attributes: ['id'] },
-            { model: University, as: 'universities', attributes: ['id'] }
-        ],
-        limit: Number(limit),
-        offset: Number(offset),
-        distinct: true,
-        order: [['name', 'ASC']]
-    })
-
-    return {
-        total: count,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(count / limit),
-        data: rows
+        return res.status(200).json({
+            success: true,
+            message: "Fetched all locations successfully",
+            ...result
+        });
+    } catch (error) {
+        console.error("❌ Controller Error (getAllLocations):", error);
+        return res.status(error.status || 500).json({
+            success: false,
+            message: error.message || "Internal Server Error"
+        });
     }
-}
+};
 
-const getLocationById = async (id) => {
-    const location = await Location.findByPk(id, {
-        include: [
-            { model: Building, as: 'buildings' },
-            { model: University, as: 'universities' }
-        ]
-    })
-    if (!location) throw { status: 404, message: 'Location not found' }
-    return location
-}
+/**
+ * Lấy chi tiết một khu vực
+ */
+const getLocationById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const location = await locationService.getLocationById(id);
 
-const createLocation = async (data) => {
-    const { name } = data
-    const existing = await Location.findOne({ where: { name } })
-    if (existing) throw { status: 409, message: `Location "${name}" already exists` }
-
-    return await Location.create(data)
-}
-
-const updateLocation = async (id, data) => {
-    const location = await Location.findByPk(id)
-    if (!location) throw { status: 404, message: 'Location not found' }
-
-    if (data.name && data.name !== location.name) {
-        const duplicate = await Location.findOne({ 
-            where: { name: data.name, id: { [Op.ne]: id } } 
-        })
-        if (duplicate) throw { status: 409, message: `Location "${data.name}" already exists` }
+        return res.status(200).json({
+            success: true,
+            data: location
+        });
+    } catch (error) {
+        console.error(`❌ Controller Error (getLocationById - ${req.params.id}):`, error);
+        return res.status(error.status || 500).json({
+            success: false,
+            message: error.message || "Internal Server Error"
+        });
     }
+};
 
-    return await location.update(data)
-}
+/**
+ * Tạo mới khu vực
+ */
+const createLocation = async (req, res) => {
+    try {
+        const location = await locationService.createLocation(req.body);
 
-const deleteLocation = async (id) => {
-    const location = await Location.findByPk(id)
-    if (!location) throw { status: 404, message: 'Location not found' }
-    
-    // Kiểm tra các tòa nhà thuộc location_id
-    const buildingsCount = await Building.count({ where: { location_id: id } })
-    if (buildingsCount > 0) {
-        throw { status: 400, message: 'Cannot delete location with associated buildings' }
+        return res.status(201).json({
+            success: true,
+            message: "Location created successfully",
+            data: location
+        });
+    } catch (error) {
+        console.error("❌ Controller Error (createLocation):", error);
+        return res.status(error.status || 500).json({
+            success: false,
+            message: error.message || "Internal Server Error"
+        });
     }
+};
 
-    await location.destroy()
-    return { message: `Location "${location.name}" deleted successfully` }
-}
+/**
+ * Cập nhật khu vực
+ */
+const updateLocation = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updatedLocation = await locationService.updateLocation(id, req.body);
 
-module.exports = { getAllLocations, getLocationById, createLocation, updateLocation, deleteLocation }
+        return res.status(200).json({
+            success: true,
+            message: "Location updated successfully",
+            data: updatedLocation
+        });
+    } catch (error) {
+        console.error(`❌ Controller Error (updateLocation - ${req.params.id}):`, error);
+        return res.status(error.status || 500).json({
+            success: false,
+            message: error.message || "Internal Server Error"
+        });
+    }
+};
+
+/**
+ * Xóa khu vực
+ */
+const deleteLocation = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await locationService.deleteLocation(id);
+
+        return res.status(200).json({
+            success: true,
+            ...result
+        });
+    } catch (error) {
+        console.error(`❌ Controller Error (deleteLocation - ${req.params.id}):`, error);
+        return res.status(error.status || 500).json({
+            success: false,
+            message: error.message || "Internal Server Error"
+        });
+    }
+};
+
+module.exports = {
+    getAllLocations,
+    getLocationById,
+    createLocation,
+    updateLocation,
+    deleteLocation
+};

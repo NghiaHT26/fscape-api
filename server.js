@@ -50,6 +50,14 @@ require('./models/scheduledJob.model');
 require('./models/emailTemplate.model');
 require('./models/emailLog.model');
 
+const models = sequelize.models; 
+
+Object.keys(models).forEach((modelName) => {
+    if (models[modelName].associate) {
+        models[modelName].associate(models);
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 
 connectDB().then(async () => {
