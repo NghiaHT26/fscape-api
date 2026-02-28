@@ -22,4 +22,16 @@ const Location = sequelize.define('Location', {
   underscored: true
 });
 
+Location.associate = (models) => {
+  Location.hasMany(models.Building, { 
+    foreignKey: 'location_id', 
+    as: 'buildings' 
+  });
+
+  Location.hasMany(models.University, { 
+    foreignKey: 'location_id', 
+    as: 'universities' 
+  });
+};
+
 module.exports = Location;

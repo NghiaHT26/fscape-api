@@ -1,11 +1,25 @@
-import express from "express";
+require('dotenv').config()
+const setupSwagger = require('./setups/swaggerSetup');
 
-const app = express();
+const express = require('express')
+const cors = require('cors')
+const app = express()
 
-app.use(express.json());
+app.use(cors())
+app.use(express.json())
+setupSwagger(app);
 
-app.get("/health", (req, res) => {
-  res.json({ status: "OK" });
-});
+// ─── Health check ──────────────────────────────────────────
+app.get('/health', (req, res) => res.json({ status: 'ok' }))
 
-export default app;
+// ─── Routes ────────────────────────────────────────────────
+app.use('/api/rooms', require('./routes/room.routes'))
+app.use('/api/assets', require('./routes/asset.routes'))
+app.use('/api/locations', require('./routes/location.routes'));     //
+app.use('/api/universities', require('./routes/university.routes')); //
+app.use('/api/buildings', require('./routes/building.routes'));      //
+app.use('/api/facilities', require('./routes/facility.routes'));     //
+app.use('/api/building-facilities', require('./routes/buildingFacility.routes')); //
+
+
+module.exports = app
