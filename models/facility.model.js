@@ -22,4 +22,13 @@ const Facility = sequelize.define('Facility', {
   underscored: true
 });
 
+Facility.associate = (models) => {
+  Facility.belongsToMany(models.Building, { 
+    through: models.BuildingFacility, 
+    foreignKey: 'facility_id', 
+    otherKey: 'building_id',
+    as: 'buildings'
+  });
+};
+
 module.exports = Facility;
