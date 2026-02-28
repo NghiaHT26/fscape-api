@@ -3,34 +3,70 @@ const AdminUserService = require('../services/adminUser.service');
 exports.createUser = async (req, res) => {
   try {
     const user = await AdminUserService.createInternalUser(req.body);
-    res.status(201).json(user);
+    return res.status(201).json(user);
   } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-};
-
-exports.updateUser = async (req, res) => {
-  try {
-    const user = await AdminUserService.updateUser(
-      req.params.id,
-      req.body
-    );
-    res.json(user);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-};
-
-exports.deactivateUser = async (req, res) => {
-  try {
-    const user = await AdminUserService.deactivateUser(req.params.id);
-    res.json(user);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
+    return res.status(400).json({ message: err.message });
   }
 };
 
 exports.listUsers = async (req, res) => {
-  const users = await AdminUserService.listUsers();
-  res.json(users);
+  try {
+    const users = await AdminUserService.getAllUsers();
+    return res.json({ data: users });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+// 👉 BỔ SUNG
+exports.updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = await AdminUserService.updateUserInfo(id, req.body);
+    return res.json({
+      message: 'User updated',
+      data: updated,
+    });
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
+  }
+};
+
+// 👉 BỔ SUNG
+exports.deactivateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await AdminUserService.updateUserStatus(id, false);
+    return res.json({
+      message: 'User deactivated',
+      data: { id: user.id, is_active: user.is_active },
+    });
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
+  }
+};
+
+exports.updateUserStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { is_active } = req.body;
+
+    if (typeof is_active !== 'boolean') {
+      return res.status(400).json({
+        message: 'is_active must be boolean',
+      });
+    }
+
+    const user = await AdminUserService.updateUserStatus(id, is_active);
+
+    return res.json({
+      message: 'User status updated',
+      data: {
+        id: user.id,
+        is_active: user.is_active,
+      },
+    });
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
+  }
 };

@@ -18,7 +18,17 @@ const AuditLog = sequelize.define('AuditLog', {
     allowNull: true
   },
   action: {
-    type: DataTypes.STRING(50), // 'CREATE', 'UPDATE', 'DELETE', 'SIGN', v.v.
+    type: DataTypes.ENUM(
+      'CREATE',
+      'UPDATE',
+      'DELETE',
+      'LOGIN',
+      'LOGOUT',
+      'SIGN',
+      'APPROVE',
+      'REJECT',
+      'ASSIGN'
+    ),
     allowNull: false
   },
   entity_type: {

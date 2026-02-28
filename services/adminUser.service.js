@@ -5,7 +5,11 @@ const { AuthProvider } = require('../models/authProvider.model');
 const { ADMIN_MANAGEABLE_ROLES } = require('../constants/roles');
 
 class AdminUserService {
-  static async createInternalUser(payload) {
+
+  // =========================
+  // CREATE INTERNAL USER
+  // =========================
+  static async createInternalUser(payload, req) {
     const {
       email,
       password,
@@ -25,8 +29,8 @@ class AdminUserService {
       throw new Error('Email already exists');
     }
 
-    return sequelize.transaction(async (t) => {
-      const user = await User.create(
+    const user = await sequelize.transaction(async (t) => {
+      const createdUser = await User.create(
         {
           email,
           role,
@@ -43,7 +47,7 @@ class AdminUserService {
 
       await AuthProvider.create(
         {
-          user_id: user.id,
+          user_id: createdUser.id,
           provider: 'EMAIL',
           provider_id: email,
           password_hash: passwordHash,
@@ -52,42 +56,60 @@ class AdminUserService {
         { transaction: t }
       );
 
-      return user;
+      return createdUser;
     });
-  }
-
-  static async updateUser(userId, payload) {
-    const user = await User.findByPk(userId);
-    if (!user) throw new Error('User not found');
-
-    if (!ADMIN_MANAGEABLE_ROLES.includes(user.role)) {
-      throw new Error('Cannot update this role');
-    }
-
-    await user.update(payload);
     return user;
   }
 
-  static async deactivateUser(userId) {
-    const user = await User.findByPk(userId);
-    if (!user) throw new Error('User not found');
-
-    if (!ADMIN_MANAGEABLE_ROLES.includes(user.role)) {
-      throw new Error('Cannot deactivate this role');
-    }
-
-    user.is_active = false;
-    await user.save();
-    return user;
-  }
-
-  static async listUsers() {
+  // =========================
+  // GET ALL USERS (NO AUDIT)
+  // =========================
+  static async getAllUsers() {
     return User.findAll({
-      where: {
-        role: ADMIN_MANAGEABLE_ROLES,
-      },
-      order: [['created_at', 'DESC']],
+      attributes: [
+        'id',
+        'email',
+        'role',
+        'first_name',
+        'last_name',
+        'phone',
+        'is_active',
+        'created_at',
+        'last_login_at'
+      ],
+      order: [['created_at', 'DESC']]
     });
+  }
+
+  // =========================
+  // UPDATE USER STATUS
+  // =========================
+  static async updateUserStatus(userId, isActive, req) {
+    const user = await User.findByPk(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (user.role === 'ADMIN') {
+      throw new Error('Cannot deactivate admin account');
+    }
+
+    const oldStatus = user.is_active;
+
+    user.is_active = isActive;
+    await user.save();
+
+    // 🔍 AUDIT LOG – UPDATE STATUS
+    await AuditLogger.log({
+      ctx: req.audit,
+      action: AUDIT_ACTION.UPDATE,
+      entityType: 'users',
+      entityId: user.id,
+      oldValue: { is_active: oldStatus },
+      newValue: { is_active: isActive }
+    });
+
+    return user;
   }
 }
 

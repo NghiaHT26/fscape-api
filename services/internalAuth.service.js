@@ -1,39 +1,47 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const User = require('../models/user.model');
-const { AuthProvider } = require('../models/authProvider.model');
-const { INTERNAL_LOGIN_ROLES } = require('../constants/auth');
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const User = require("../models/user.model");
+const { AuthProvider } = require("../models/authProvider.model");
+const { INTERNAL_LOGIN_ROLES } = require("../constants/auth");
 
 class InternalAuthService {
   // ========= LOGIN =========
   static async login({ email, password }) {
     const user = await User.findOne({ where: { email } });
     if (!user) {
-      throw new Error('Invalid email or password');
+      throw new Error("Invalid email or password");
     }
 
     if (!INTERNAL_LOGIN_ROLES.includes(user.role)) {
-      throw new Error('This account must login via customer flow');
+      throw new Error("This account must login via customer flow");
     }
 
     if (!user.is_active) {
-      throw new Error('Account is inactive');
+      throw new Error("Account is inactive");
     }
 
     const auth = await AuthProvider.findOne({
       where: {
         user_id: user.id,
-        provider: 'EMAIL',
+        provider: "EMAIL",
       },
     });
 
     if (!auth || !auth.password_hash) {
-      throw new Error('Invalid authentication method');
+      throw new Error("Invalid authentication method");
     }
 
-    const match = await bcrypt.compare(password, auth.password_hash);
+    let match = false;
+
+    if (user.role === "ADMIN") {
+      // 👉 ADMIN: so sánh plain text
+      match = password === auth.password_hash;
+    } else {
+      // 👉 User thường: bcrypt
+      match = await bcrypt.compare(password, auth.password_hash);
+    }
     if (!match) {
-      throw new Error('Invalid email or password');
+      throw new Error("Invalid email or password");
     }
 
     await user.update({ last_login_at: new Date() });
@@ -44,7 +52,7 @@ class InternalAuthService {
         role: user.role,
       },
       process.env.JWT_SECRET,
-      { expiresIn: '1d' }
+      { expiresIn: "1d" },
     );
 
     return {
@@ -63,29 +71,39 @@ class InternalAuthService {
   static async changePassword(userId, oldPassword, newPassword) {
     const user = await User.findByPk(userId);
     if (!user) {
-      throw new Error('User not found');
+      throw new Error("User not found");
     }
 
     if (!INTERNAL_LOGIN_ROLES.includes(user.role)) {
-      throw new Error('This account cannot change password here');
+      throw new Error("This account cannot change password here");
     }
 
     const auth = await AuthProvider.findOne({
       where: {
         user_id: user.id,
-        provider: 'EMAIL',
+        provider: "EMAIL",
       },
     });
 
     if (!auth || !auth.password_hash) {
-      throw new Error('Invalid authentication method');
+      throw new Error("Invalid authentication method");
     }
 
-    const match = await bcrypt.compare(oldPassword, auth.password_hash);
+    let match = false;
+
+    if (user.role === "ADMIN") {
+      // 👉 ADMIN: password cũ đang là plain text
+      match = oldPassword === auth.password_hash;
+    } else {
+      // 👉 User thường: bcrypt
+      match = await bcrypt.compare(oldPassword, auth.password_hash);
+    }
+
     if (!match) {
-      throw new Error('Old password is incorrect');
+      throw new Error("Old password is incorrect");
     }
 
+    // 👉 Sau khi đổi: BẮT BUỘC hash lại
     const newHash = await bcrypt.hash(newPassword, 10);
 
     await auth.update({
