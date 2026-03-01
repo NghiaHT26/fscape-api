@@ -122,4 +122,21 @@ const deleteBuilding = async (id) => {
     return { message: `Building "${building.name}" deleted successfully` };
 };
 
-module.exports = { getAllBuildings, getBuildingById, createBuilding, updateBuilding, deleteBuilding };
+const toggleBuildingStatus = async (id) => {
+    const building = await Building.findByPk(id)
+    if (!building) throw { status: 404, message: 'Building not found' }
+
+    building.is_active = !building.is_active
+    await building.save()
+
+    return building
+}
+
+module.exports = { 
+    getAllBuildings, 
+    getBuildingById, 
+    createBuilding, 
+    updateBuilding, 
+    deleteBuilding, 
+    toggleBuildingStatus 
+};

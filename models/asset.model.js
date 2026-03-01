@@ -1,7 +1,5 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-const Building = require('./building.model');
-const Room = require('./room.model');
 
 const Asset = sequelize.define('Asset', {
   id: {
@@ -11,13 +9,12 @@ const Asset = sequelize.define('Asset', {
   },
   building_id: {
     type: DataTypes.UUID,
-    allowNull: false,
-    references: { model: 'buildings', key: 'id' }
+    allowNull: false
   },
   qr_code: {
     type: DataTypes.STRING(100),
     allowNull: false,
-    unique: true 
+    unique: true
   },
   name: {
     type: DataTypes.STRING(255),
@@ -33,7 +30,7 @@ const Asset = sequelize.define('Asset', {
   },
   current_room_id: {
     type: DataTypes.UUID,
-    allowNull: true // NULL = Đang ở kho
+    allowNull: true
   },
   notes: {
     type: DataTypes.TEXT
@@ -41,20 +38,26 @@ const Asset = sequelize.define('Asset', {
 }, {
   tableName: 'assets',
   timestamps: true,
-  underscored: true,
-  indexes: [
-    { unique: true, fields: ['qr_code'] },
-    { fields: ['building_id'] },
-    { fields: ['status'] },
-    { fields: ['current_room_id'] }
-  ]
-});
+  underscored: true
+})
 
-/* ===== RELATIONS ===== */
-Asset.belongsTo(Building, { foreignKey: 'building_id', as: 'building' });
-Building.hasMany(Asset, { foreignKey: 'building_id', as: 'assets' });
+Asset.associate = (models) => {
 
-Asset.belongsTo(Room, { foreignKey: 'current_room_id', as: 'room' });
-Room.hasMany(Asset, { foreignKey: 'current_room_id', as: 'assets' });
+  /* Asset <-> Building */
+  Asset.belongsTo(models.Building, {
+    foreignKey: 'building_id',
+    as: 'building'
+  })
+  models.Building.hasMany(Asset, {
+    foreignKey: 'building_id',
+    as: 'assets'
+  })
 
-module.exports = Asset;
+  /* Asset <-> Room */
+  Asset.belongsTo(models.Room, {
+    foreignKey: 'current_room_id',
+    as: 'room'
+  })
+}
+
+module.exports = Asset

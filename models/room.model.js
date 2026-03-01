@@ -1,7 +1,5 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db');
-const Building = require('./building.model');
-const RoomType = require('./roomType.model');
+const { DataTypes } = require('sequelize')
+const { sequelize } = require('../config/db')
 
 const Room = sequelize.define('Room', {
   id: {
@@ -11,13 +9,11 @@ const Room = sequelize.define('Room', {
   },
   building_id: {
     type: DataTypes.UUID,
-    allowNull: false,
-    references: { model: 'buildings', key: 'id' }
+    allowNull: false
   },
   room_type_id: {
     type: DataTypes.UUID,
-    allowNull: false,
-    references: { model: 'room_types', key: 'id' }
+    allowNull: false
   },
   room_number: {
     type: DataTypes.STRING(20),
@@ -27,41 +23,41 @@ const Room = sequelize.define('Room', {
     type: DataTypes.SMALLINT,
     allowNull: false
   },
-  thumbnail_url: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  image_3d_url: { // Đồng bộ tên trường theo thiết kế
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  blueprint_url: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
+  thumbnail_url: DataTypes.TEXT,
+  image_3d_url: DataTypes.TEXT,
+  blueprint_url: DataTypes.TEXT,
   status: {
     type: DataTypes.ENUM('AVAILABLE', 'OCCUPIED', 'LOCKED'),
     defaultValue: 'AVAILABLE'
   }
 }, {
-  tableName: 'rooms', // Chuyển thành số nhiều
+  tableName: 'rooms',
   timestamps: true,
-  underscored: true,
-  indexes: [
-    {
-      unique: true,
-      fields: ['building_id', 'room_number']
-    },
-    { fields: ['status'] },
-    { fields: ['floor'] }
-  ]
-});
+  underscored: true
+})
 
-/* ===== RELATIONS ===== */
-Room.belongsTo(Building, { foreignKey: 'building_id', as: 'building' });
-Building.hasMany(Room, { foreignKey: 'building_id', as: 'rooms' });
+Room.associate = (models) => {
 
-Room.belongsTo(RoomType, { foreignKey: 'room_type_id', as: 'room_type' });
-RoomType.hasMany(Room, { foreignKey: 'room_type_id', as: 'rooms' });
+  Room.belongsTo(models.Building, {
+    foreignKey: 'building_id',
+    as: 'building'
+  })
 
-module.exports = Room;
+  Room.belongsTo(models.RoomType, {
+    foreignKey: 'room_type_id',
+    as: 'room_type'
+  })
+
+  Room.hasMany(models.RoomImage, {
+    foreignKey: 'room_id',
+    as: 'images',
+    onDelete: 'CASCADE'
+  })
+
+  Room.hasMany(models.Asset, {
+    foreignKey: 'current_room_id',
+    as: 'assets'
+  })
+}
+
+module.exports = Room

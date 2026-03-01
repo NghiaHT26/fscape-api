@@ -44,4 +44,24 @@ const deleteUniversity = async (req, res) => {
     } catch (err) { return handleError(res, err); }
 };
 
-module.exports = { getAllUniversities, getUniversityById, createUniversity, updateUniversity, deleteUniversity };
+const toggleUniversityStatus = async (req, res) => {
+    try {
+        const university = await universityService.toggleUniversityStatus(req.params.id)
+        return res.status(200).json({
+            success: true,
+            message: 'University status updated successfully',
+            data: university
+        })
+    } catch (err) {
+        return handleError(res, err)
+    }
+}
+
+module.exports = { 
+    getAllUniversities, 
+    getUniversityById, 
+    createUniversity, 
+    updateUniversity, 
+    deleteUniversity, 
+    toggleUniversityStatus 
+};

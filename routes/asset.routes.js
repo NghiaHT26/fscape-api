@@ -6,16 +6,29 @@ const assetController = require('../controllers/asset.controller');
  * @swagger
  * tags:
  *   - name: Assets
- *     description: Quản lý tài sản trong tòa nhà
+ *     description: Quản lý tài sản trong toà nhà
  */
 
 /**
  * @swagger
  * /api/assets:
  *   get:
- *     summary: Lấy danh sách tài sản (có filter)
+ *     operationId: getAllAssets
+ *     summary: Lấy danh sách tài sản (phân trang + lọc)
  *     tags: [Assets]
  *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Trang hiện tại
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Số bản ghi mỗi trang
  *       - in: query
  *         name: building_id
  *         schema:
@@ -23,14 +36,51 @@ const assetController = require('../controllers/asset.controller');
  *           format: uuid
  *         description: Lọc theo building_id
  *       - in: query
+ *         name: current_room_id
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Lọc theo phòng hiện tại của tài sản
+ *       - in: query
  *         name: status
  *         schema:
  *           type: string
  *           enum: [AVAILABLE, IN_USE, MAINTENANCE]
  *         description: Lọc theo trạng thái tài sản
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Tìm kiếm theo tên hoặc qr_code (iLike)
  *     responses:
  *       200:
  *         description: Danh sách tài sản
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 total:
+ *                   type: integer
+ *                 page:
+ *                   type: integer
+ *                 limit:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Asset'
+ *       500:
+ *         description: Lỗi server
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/', assetController.getAllAssets);
 
@@ -38,7 +88,8 @@ router.get('/', assetController.getAllAssets);
  * @swagger
  * /api/assets/{id}:
  *   get:
- *     summary: Lấy chi tiết tài sản theo ID
+ *     operationId: getAssetById
+ *     summary: Lấy chi tiết tài sản theo ID (kèm building, room, 10 lịch sử gần nhất)
  *     tags: [Assets]
  *     parameters:
  *       - in: path
@@ -50,8 +101,22 @@ router.get('/', assetController.getAllAssets);
  *     responses:
  *       200:
  *         description: Thông tin tài sản
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/AssetDetail'
  *       404:
  *         description: Không tìm thấy tài sản
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/:id', assetController.getAssetById);
 
@@ -59,7 +124,8 @@ router.get('/:id', assetController.getAssetById);
  * @swagger
  * /api/assets:
  *   post:
- *     summary: Tạo tài sản mới
+ *     operationId: createAsset
+ *     summary: Tạo tài sản mới (tự động ghi lịch sử INITIAL_CREATE, QR code phải là duy nhất)
  *     tags: [Assets]
  *     requestBody:
  *       required: true
@@ -81,24 +147,46 @@ router.get('/:id', assetController.getAssetById);
  *                 example: "QR-ROOM-001"
  *               name:
  *                 type: string
- *                 example: "Air Conditioner"
+ *                 example: "Máy lạnh"
  *               price:
  *                 type: number
  *                 example: 3500000
  *               status:
  *                 type: string
  *                 enum: [AVAILABLE, IN_USE, MAINTENANCE]
+ *                 default: AVAILABLE
  *               current_room_id:
  *                 type: string
  *                 format: uuid
- *                 example: "fa615f6f-ef4e-478d-8270-fcba07e4d2e1"
  *               notes:
  *                 type: string
  *     responses:
  *       201:
  *         description: Tạo tài sản thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/AssetDetail'
  *       400:
- *         description: Dữ liệu không hợp lệ
+ *         description: Thiếu qr_code, name hoặc building_id
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: QR Code đã tồn tại
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/', assetController.createAsset);
 
@@ -106,7 +194,8 @@ router.post('/', assetController.createAsset);
  * @swagger
  * /api/assets/{id}:
  *   put:
- *     summary: Cập nhật tài sản
+ *     operationId: updateAsset
+ *     summary: Cập nhật tài sản (tự động ghi log nếu thay đổi status hoặc current_room_id)
  *     tags: [Assets]
  *     parameters:
  *       - in: path
@@ -137,8 +226,24 @@ router.post('/', assetController.createAsset);
  *     responses:
  *       200:
  *         description: Cập nhật thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/AssetDetail'
  *       404:
  *         description: Không tìm thấy tài sản
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.put('/:id', assetController.updateAsset);
 
@@ -146,7 +251,8 @@ router.put('/:id', assetController.updateAsset);
  * @swagger
  * /api/assets/{id}:
  *   delete:
- *     summary: Xóa tài sản
+ *     operationId: deleteAsset
+ *     summary: Xoá tài sản (không cho phép nếu status = IN_USE)
  *     tags: [Assets]
  *     parameters:
  *       - in: path
@@ -157,9 +263,29 @@ router.put('/:id', assetController.updateAsset);
  *           format: uuid
  *     responses:
  *       200:
- *         description: Xóa thành công
+ *         description: Xoá thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Không thể xoá tài sản đang IN_USE
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: Không tìm thấy tài sản
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.delete('/:id', assetController.deleteAsset);
 

@@ -5,9 +5,8 @@ const { sequelize } = require('../config/db');
  * Lấy danh sách địa điểm
  */
 const getAllLocations = async ({ page = 1, limit = 10, search, is_active } = {}) => {
-    // LẤY MODEL Ở ĐÂY ĐỂ ĐẢM BẢO CHÚNG ĐÃ ĐƯỢC KHỞI TẠO
     const { Location, Building, University } = sequelize.models;
-    
+
     const offset = (page - 1) * limit;
     const where = {};
 
@@ -42,7 +41,7 @@ const getAllLocations = async ({ page = 1, limit = 10, search, is_active } = {})
  */
 const getLocationById = async (id) => {
     const { Location, Building, University } = sequelize.models;
-    
+
     const location = await Location.findByPk(id, {
         include: [
             { model: Building, as: 'buildings' },
@@ -60,7 +59,7 @@ const getLocationById = async (id) => {
 const createLocation = async (data) => {
     const { Location } = sequelize.models;
     const { name } = data;
-    
+
     const existing = await Location.findOne({ where: { name } });
     if (existing) throw { status: 409, message: `Location "${name}" already exists` };
 
@@ -76,8 +75,8 @@ const updateLocation = async (id, data) => {
     if (!location) throw { status: 404, message: 'Location not found' };
 
     if (data.name && data.name !== location.name) {
-        const duplicate = await Location.findOne({ 
-            where: { name: data.name, id: { [Op.ne]: id } } 
+        const duplicate = await Location.findOne({
+            where: { name: data.name, id: { [Op.ne]: id } }
         });
         if (duplicate) throw { status: 409, message: `Location "${data.name}" already exists` };
     }
@@ -92,16 +91,16 @@ const deleteLocation = async (id) => {
     const { Location, Building, University } = sequelize.models;
     const location = await Location.findByPk(id);
     if (!location) throw { status: 404, message: 'Location not found' };
-    
+
     const [buildingsCount, universitiesCount] = await Promise.all([
         Building.count({ where: { location_id: id } }),
         University.count({ where: { location_id: id } })
     ]);
 
     if (buildingsCount > 0 || universitiesCount > 0) {
-        throw { 
-            status: 400, 
-            message: 'Cannot delete location: Associated data exists.' 
+        throw {
+            status: 400,
+            message: 'Cannot delete location: Associated data exists.'
         };
     }
 
@@ -109,10 +108,21 @@ const deleteLocation = async (id) => {
     return { message: `Location "${location.name}" deleted successfully` };
 };
 
-module.exports = { 
-    getAllLocations, 
-    getLocationById, 
-    createLocation, 
-    updateLocation, 
-    deleteLocation 
+const toggleLocationStatus = async (id) => {
+    const location = await Location.findByPk(id)
+    if (!location) throw { status: 404, message: 'Location not found' }
+
+    location.is_active = !location.is_active
+    await location.save()
+
+    return location
+}
+
+module.exports = {
+    getAllLocations,
+    getLocationById,
+    createLocation,
+    updateLocation,
+    deleteLocation,
+    toggleLocationStatus
 };

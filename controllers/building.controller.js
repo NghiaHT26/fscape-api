@@ -100,10 +100,24 @@ const deleteBuilding = async (req, res) => {
     }
 };
 
+const toggleBuildingStatus = async (req, res) => {
+    try {
+        const building = await buildingService.toggleBuildingStatus(req.params.id)
+        return res.status(200).json({
+            success: true,
+            message: 'Building status updated successfully',
+            data: building
+        })
+    } catch (err) {
+        return handleError(res, err)
+    }
+}
+
 module.exports = {
     getAllBuildings,
     getBuildingById,
     createBuilding,
     updateBuilding,
-    deleteBuilding
+    deleteBuilding,
+    toggleBuildingStatus
 };
