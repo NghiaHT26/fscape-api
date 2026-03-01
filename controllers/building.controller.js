@@ -11,39 +11,99 @@ const getAllBuildings = async (req, res) => {
     try {
         const result = await buildingService.getAllBuildings(req.query);
         return res.status(200).json({ success: true, ...result });
-    } catch (err) { return handleError(res, err); }
+    } catch (err) {
+        return handleError(res, err);
+    }
 };
 
 const getBuildingById = async (req, res) => {
     try {
         const building = await buildingService.getBuildingById(req.params.id);
         return res.status(200).json({ success: true, data: building });
-    } catch (err) { return handleError(res, err); }
+    } catch (err) {
+        return handleError(res, err);
+    }
 };
 
 const createBuilding = async (req, res) => {
     try {
-        const { name, location_id, manager_id } = req.body;
-        if (!name || !location_id || !manager_id) {
-            return res.status(400).json({ success: false, message: 'Missing name, location_id, or manager_id' });
+        const {
+            location_id,
+            name,
+            address,
+            latitude,
+            longitude,
+            description,
+            total_floors,
+            thumbnail_url,
+            is_active
+        } = req.body;
+
+        // ✅ Validate đúng theo schema DB
+        if (!location_id || !name || !address || latitude === undefined || longitude === undefined) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required fields: location_id, name, address, latitude, longitude'
+            });
         }
-        const building = await buildingService.createBuilding(req.body);
-        return res.status(201).json({ success: true, message: 'Building created', data: building });
-    } catch (err) { return handleError(res, err); }
+
+        const building = await buildingService.createBuilding({
+            location_id,
+            name,
+            address,
+            latitude,
+            longitude,
+            description,
+            total_floors,
+            thumbnail_url,
+            is_active
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: 'Building created successfully',
+            data: building
+        });
+
+    } catch (err) {
+        return handleError(res, err);
+    }
 };
 
 const updateBuilding = async (req, res) => {
     try {
         const building = await buildingService.updateBuilding(req.params.id, req.body);
-        return res.status(200).json({ success: true, message: 'Building updated', data: building });
-    } catch (err) { return handleError(res, err); }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Building updated successfully',
+            data: building
+        });
+
+    } catch (err) {
+        return handleError(res, err);
+    }
 };
 
 const deleteBuilding = async (req, res) => {
     try {
         const result = await buildingService.deleteBuilding(req.params.id);
-        return res.status(200).json({ success: true, ...result });
-    } catch (err) { return handleError(res, err); }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Building deleted successfully',
+            ...result
+        });
+
+    } catch (err) {
+        return handleError(res, err);
+    }
 };
 
-module.exports = { getAllBuildings, getBuildingById, createBuilding, updateBuilding, deleteBuilding };
+module.exports = {
+    getAllBuildings,
+    getBuildingById,
+    createBuilding,
+    updateBuilding,
+    deleteBuilding
+};

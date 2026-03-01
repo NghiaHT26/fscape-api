@@ -12,7 +12,9 @@ const getAllRooms = async ({ page = 1, limit = 10, status, building_id, room_typ
     if (status) where.status = status.toUpperCase() // Đảm bảo khớp ENUM AVAILABLE/OCCUPIED/LOCKED
     if (building_id) where.building_id = building_id
     if (room_type_id) where.room_type_id = room_type_id
-    if (floor) where.floor = floor
+    if (floor !== undefined && floor !== null) {
+        where.floor = floor
+    }
     if (search) where.room_number = { [Op.iLike]: `%${search}%` }
 
     const { count, rows } = await Room.findAndCountAll({
@@ -52,21 +54,33 @@ const getRoomById = async (id) => {
 const createRoom = async (data) => {
     const { room_number, building_id, room_type_id, floor, gallery_images, ...rest } = data
 
-    // Kiểm tra trùng số phòng trong tòa nhà
+    // Check FK tồn tại
+    const building = await Building.findByPk(building_id)
+    if (!building) throw { status: 400, message: 'Building not found' }
+
+    const roomType = await RoomType.findByPk(room_type_id)
+    if (!roomType) throw { status: 400, message: 'Room type not found' }
+
+    // Check duplicate
     const existing = await Room.findOne({ where: { building_id, room_number } })
     if (existing) throw { status: 409, message: `Room "${room_number}" already exists in this building` }
 
-    // Tạo Room (không còn trường price ở đây)
+    // Validate ENUM
+    const validStatus = ['AVAILABLE', 'OCCUPIED', 'LOCKED']
+    const statusValue = data.status ? data.status.toUpperCase() : 'AVAILABLE'
+    if (!validStatus.includes(statusValue)) {
+        throw { status: 400, message: 'Invalid room status' }
+    }
+
     const room = await Room.create({
         room_number,
         building_id,
         room_type_id,
         floor,
-        status: data.status || 'AVAILABLE',
+        status: statusValue,
         ...rest
     })
 
-    // Xử lý lưu nhiều ảnh vào bảng RoomImage
     if (gallery_images && Array.isArray(gallery_images)) {
         const imageRecords = gallery_images.map(url => ({
             room_id: room.id,
