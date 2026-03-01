@@ -16,7 +16,7 @@ const swaggerOptions = {
       },
     ],
   },
-  apis: ['./routes/*.js'], // Định nghĩa nơi Swagger tìm kiếm các comment
+  apis: ['./swagger/*.js', './routes/*.js'],
 };
 
 const swaggerDocs = swaggerJsDoc(swaggerOptions);

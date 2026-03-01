@@ -13,7 +13,8 @@ const buildingFacilityController = require('../controllers/buildingFacility.cont
  * @swagger
  * /api/building-facilities:
  *   post:
- *     summary: Gán tiện ích vào tòa nhà
+ *     operationId: assignFacilityToBuilding
+ *     summary: Gán tiện ích vào toà nhà
  *     tags: [Building Facilities]
  *     requestBody:
  *       required: true
@@ -35,14 +36,34 @@ const buildingFacilityController = require('../controllers/buildingFacility.cont
  *                 example: "a1234567-d5a3-46d4-bdd6-fa5371e0b099"
  *               is_active:
  *                 type: boolean
- *                 example: true
+ *                 default: true
  *     responses:
  *       201:
- *         description: Gán tiện ích vào tòa nhà thành công
+ *         description: Gán tiện ích vào toà nhà thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/BuildingFacility'
  *       400:
- *         description: Dữ liệu không hợp lệ
+ *         description: Thiếu building_id hoặc facility_id
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       409:
- *         description: Tiện ích đã tồn tại trong tòa nhà
+ *         description: Tiện ích đã được gán cho toà nhà này
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/', buildingFacilityController.assignFacility);
 
@@ -50,7 +71,8 @@ router.post('/', buildingFacilityController.assignFacility);
  * @swagger
  * /api/building-facilities/{id}:
  *   put:
- *     summary: Cập nhật trạng thái tiện ích của tòa nhà
+ *     operationId: updateBuildingFacilityStatus
+ *     summary: Cập nhật trạng thái tiện ích của toà nhà
  *     tags: [Building Facilities]
  *     parameters:
  *       - in: path
@@ -66,6 +88,8 @@ router.post('/', buildingFacilityController.assignFacility);
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - is_active
  *             properties:
  *               is_active:
  *                 type: boolean
@@ -73,8 +97,30 @@ router.post('/', buildingFacilityController.assignFacility);
  *     responses:
  *       200:
  *         description: Cập nhật thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/BuildingFacility'
+ *       400:
+ *         description: Thiếu trường is_active
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: Không tìm thấy bản ghi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.put('/:id', buildingFacilityController.updateStatus);
 
@@ -82,7 +128,8 @@ router.put('/:id', buildingFacilityController.updateStatus);
  * @swagger
  * /api/building-facilities/{id}:
  *   delete:
- *     summary: Xóa liên kết tiện ích khỏi tòa nhà
+ *     operationId: removeFacilityFromBuilding
+ *     summary: Xoá liên kết tiện ích khỏi toà nhà
  *     tags: [Building Facilities]
  *     parameters:
  *       - in: path
@@ -94,9 +141,23 @@ router.put('/:id', buildingFacilityController.updateStatus);
  *         description: ID của bản ghi building_facility
  *     responses:
  *       200:
- *         description: Xóa liên kết thành công
+ *         description: Xoá liên kết thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
  *       404:
  *         description: Không tìm thấy bản ghi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.delete('/:id', buildingFacilityController.removeFacility);
 

@@ -6,34 +6,40 @@ const buildingController = require('../controllers/building.controller');
  * @swagger
  * tags:
  *   - name: Buildings
- *     description: Quản lý tòa nhà
+ *     description: Quản lý toà nhà
  */
 
 /**
  * @swagger
  * /api/buildings:
  *   get:
- *     summary: Lấy danh sách tòa nhà (có phân trang + filter)
+ *     operationId: getAllBuildings
+ *     summary: Lấy danh sách toà nhà (phân trang + lọc)
  *     tags: [Buildings]
  *     parameters:
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
- *           example: 1
- *         description: Trang hiện tại (mặc định = 1)
+ *           default: 1
+ *         description: Trang hiện tại
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
- *           example: 10
- *         description: Số bản ghi mỗi trang (mặc định = 10)
+ *           default: 10
+ *         description: Số bản ghi mỗi trang
  *       - in: query
  *         name: location_id
  *         schema:
  *           type: string
  *           format: uuid
  *         description: Lọc theo location_id
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Tìm kiếm theo tên toà nhà (iLike)
  *       - in: query
  *         name: is_active
  *         schema:
@@ -50,50 +56,24 @@ const buildingController = require('../controllers/building.controller');
  *                 success:
  *                   type: boolean
  *                   example: true
+ *                 total:
+ *                   type: integer
+ *                 page:
+ *                   type: integer
+ *                 limit:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
  *                 data:
  *                   type: array
  *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                         format: uuid
- *                       location_id:
- *                         type: string
- *                         format: uuid
- *                       name:
- *                         type: string
- *                       address:
- *                         type: string
- *                       latitude:
- *                         type: number
- *                       longitude:
- *                         type: number
- *                       description:
- *                         type: string
- *                       total_floors:
- *                         type: integer
- *                       thumbnail_url:
- *                         type: string
- *                       is_active:
- *                         type: boolean
- *                       created_at:
- *                         type: string
- *                         format: date-time
- *                       updated_at:
- *                         type: string
- *                         format: date-time
- *                 meta:
- *                   type: object
- *                   properties:
- *                     total:
- *                       type: integer
- *                     page:
- *                       type: integer
- *                     limit:
- *                       type: integer
- *                     total_pages:
- *                       type: integer
+ *                     $ref: '#/components/schemas/Building'
+ *       500:
+ *         description: Lỗi server
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/', buildingController.getAllBuildings);
 
@@ -101,7 +81,8 @@ router.get('/', buildingController.getAllBuildings);
  * @swagger
  * /api/buildings/{id}:
  *   get:
- *     summary: Lấy chi tiết tòa nhà theo ID
+ *     operationId: getBuildingById
+ *     summary: Lấy chi tiết toà nhà theo ID (kèm images, facilities, nearby_universities)
  *     tags: [Buildings]
  *     parameters:
  *       - in: path
@@ -120,10 +101,15 @@ router.get('/', buildingController.getAllBuildings);
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 data:
- *                   type: object
+ *                   $ref: '#/components/schemas/BuildingDetail'
  *       404:
- *         description: Không tìm thấy tòa nhà
+ *         description: Không tìm thấy toà nhà
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/:id', buildingController.getBuildingById);
 
@@ -131,7 +117,8 @@ router.get('/:id', buildingController.getBuildingById);
  * @swagger
  * /api/buildings:
  *   post:
- *     summary: Tạo tòa nhà mới
+ *     operationId: createBuilding
+ *     summary: Tạo toà nhà mới (có thể kèm images và facilities)
  *     tags: [Buildings]
  *     requestBody:
  *       required: true
@@ -152,10 +139,10 @@ router.get('/:id', buildingController.getBuildingById);
  *                 example: "18358331-e3ae-41b3-ae4d-965f7b676804"
  *               name:
  *                 type: string
- *                 example: "Building A"
+ *                 example: "Toà nhà A"
  *               address:
  *                 type: string
- *                 example: "123 Nguyen Trai, Ha Noi"
+ *                 example: "123 Nguyễn Trãi, Hà Nội"
  *               latitude:
  *                 type: number
  *                 example: 21.028511
@@ -171,12 +158,41 @@ router.get('/:id', buildingController.getBuildingById);
  *                 type: string
  *               is_active:
  *                 type: boolean
- *                 example: true
+ *                 default: true
+ *               images:
+ *                 type: array
+ *                 description: Danh sách URL hình ảnh toà nhà
+ *                 items:
+ *                   type: string
+ *                 example: ["https://example.com/img1.jpg", "https://example.com/img2.jpg"]
+ *               facilities:
+ *                 type: array
+ *                 description: Danh sách facility_id cần gán
+ *                 items:
+ *                   type: string
+ *                   format: uuid
+ *                 example: ["a1234567-d5a3-46d4-bdd6-fa5371e0b099"]
  *     responses:
  *       201:
  *         description: Tạo thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/BuildingDetail'
  *       400:
- *         description: Dữ liệu không hợp lệ / Location không tồn tại
+ *         description: Thiếu trường bắt buộc hoặc Location không tồn tại
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/', buildingController.createBuilding);
 
@@ -184,7 +200,8 @@ router.post('/', buildingController.createBuilding);
  * @swagger
  * /api/buildings/{id}:
  *   put:
- *     summary: Cập nhật thông tin tòa nhà
+ *     operationId: updateBuilding
+ *     summary: Cập nhật toà nhà (có thể sync lại images và facilities)
  *     tags: [Buildings]
  *     parameters:
  *       - in: path
@@ -216,11 +233,38 @@ router.post('/', buildingController.createBuilding);
  *                 type: string
  *               is_active:
  *                 type: boolean
+ *               images:
+ *                 type: array
+ *                 description: Gửi mảng này sẽ xoá toàn bộ ảnh cũ và thay bằng danh sách mới
+ *                 items:
+ *                   type: string
+ *               facilities:
+ *                 type: array
+ *                 description: Gửi mảng này sẽ xoá toàn bộ facility cũ và thay bằng danh sách mới
+ *                 items:
+ *                   type: string
+ *                   format: uuid
  *     responses:
  *       200:
  *         description: Cập nhật thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/BuildingDetail'
  *       404:
- *         description: Không tìm thấy
+ *         description: Không tìm thấy toà nhà
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.put('/:id', buildingController.updateBuilding);
 
@@ -228,7 +272,8 @@ router.put('/:id', buildingController.updateBuilding);
  * @swagger
  * /api/buildings/{id}:
  *   delete:
- *     summary: Xóa tòa nhà 
+ *     operationId: deleteBuilding
+ *     summary: Xoá toà nhà (hard delete)
  *     tags: [Buildings]
  *     parameters:
  *       - in: path
@@ -239,9 +284,23 @@ router.put('/:id', buildingController.updateBuilding);
  *           format: uuid
  *     responses:
  *       200:
- *         description: Xóa thành công
+ *         description: Xoá thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
  *       404:
- *         description: Không tìm thấy
+ *         description: Không tìm thấy toà nhà
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.delete('/:id', buildingController.deleteBuilding);
 
@@ -249,7 +308,8 @@ router.delete('/:id', buildingController.deleteBuilding);
  * @swagger
  * /api/buildings/{id}/status:
  *   patch:
- *     summary: Bật/Tắt trạng thái hoạt động của Building
+ *     operationId: toggleBuildingStatus
+ *     summary: Bật/Tắt trạng thái hoạt động của Building (toggle is_active)
  *     tags: [Buildings]
  *     parameters:
  *       - in: path
@@ -261,9 +321,25 @@ router.delete('/:id', buildingController.deleteBuilding);
  *     responses:
  *       200:
  *         description: Cập nhật trạng thái thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/Building'
  *       404:
  *         description: Không tìm thấy building
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.patch('/:id/status', buildingController.toggleBuildingStatus)
+router.patch('/:id/status', buildingController.toggleBuildingStatus);
 
 module.exports = router;

@@ -13,21 +13,22 @@ const facilityController = require('../controllers/facility.controller')
  * @swagger
  * /api/facilities:
  *   get:
- *     summary: Lấy danh sách tiện ích (có phân trang + filter)
+ *     operationId: getAllFacilities
+ *     summary: Lấy danh sách tiện ích (phân trang + lọc)
  *     tags: [Facilities]
  *     parameters:
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
- *           example: 1
- *         description: Trang hiện tại (mặc định 1)
+ *           default: 1
+ *         description: Trang hiện tại
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
- *           example: 10
- *         description: Số bản ghi mỗi trang (mặc định 10)
+ *           default: 10
+ *         description: Số bản ghi mỗi trang
  *       - in: query
  *         name: is_active
  *         schema:
@@ -37,10 +38,42 @@ const facilityController = require('../controllers/facility.controller')
  *         name: search
  *         schema:
  *           type: string
- *         description: Tìm kiếm theo tên tiện ích
+ *         description: Tìm kiếm theo tên tiện ích (iLike)
+ *       - in: query
+ *         name: building_id
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Lọc chỉ các facility thuộc building này (join qua building_facilities)
  *     responses:
  *       200:
  *         description: Lấy danh sách tiện ích thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 total:
+ *                   type: integer
+ *                 page:
+ *                   type: integer
+ *                 limit:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Facility'
+ *       500:
+ *         description: Lỗi server
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/', facilityController.getAllFacilities)
 
@@ -48,7 +81,8 @@ router.get('/', facilityController.getAllFacilities)
  * @swagger
  * /api/facilities/{id}:
  *   get:
- *     summary: Lấy chi tiết tiện ích theo ID
+ *     operationId: getFacilityById
+ *     summary: Lấy chi tiết tiện ích theo ID (kèm danh sách buildings đang sử dụng)
  *     tags: [Facilities]
  *     parameters:
  *       - in: path
@@ -57,12 +91,25 @@ router.get('/', facilityController.getAllFacilities)
  *         schema:
  *           type: string
  *           format: uuid
- *         description: ID của tiện ích
  *     responses:
  *       200:
- *         description: Lấy tiện ích thành công
+ *         description: Thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/FacilityDetail'
  *       404:
  *         description: Không tìm thấy tiện ích
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/:id', facilityController.getFacilityById)
 
@@ -70,6 +117,7 @@ router.get('/:id', facilityController.getFacilityById)
  * @swagger
  * /api/facilities:
  *   post:
+ *     operationId: createFacility
  *     summary: Tạo tiện ích mới (master data)
  *     tags: [Facilities]
  *     requestBody:
@@ -83,7 +131,7 @@ router.get('/:id', facilityController.getFacilityById)
  *             properties:
  *               name:
  *                 type: string
- *                 example: "Gym"
+ *                 example: "Phòng gym"
  *               description:
  *                 type: string
  *                 example: "Phòng tập thể dục trong khuôn viên"
@@ -92,12 +140,34 @@ router.get('/:id', facilityController.getFacilityById)
  *                 example: "https://cdn.com/icons/gym.png"
  *               is_active:
  *                 type: boolean
- *                 example: true
+ *                 default: true
  *     responses:
  *       201:
  *         description: Tạo tiện ích thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/Facility'
  *       400:
- *         description: Dữ liệu không hợp lệ / Tên đã tồn tại
+ *         description: Thiếu tên tiện ích
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: Tên tiện ích đã tồn tại
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/', facilityController.createFacility)
 
@@ -105,6 +175,7 @@ router.post('/', facilityController.createFacility)
  * @swagger
  * /api/facilities/{id}:
  *   put:
+ *     operationId: updateFacility
  *     summary: Cập nhật tiện ích
  *     tags: [Facilities]
  *     parameters:
@@ -132,8 +203,30 @@ router.post('/', facilityController.createFacility)
  *     responses:
  *       200:
  *         description: Cập nhật thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/Facility'
  *       404:
  *         description: Không tìm thấy tiện ích
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: Tên tiện ích đã tồn tại
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.put('/:id', facilityController.updateFacility)
 
@@ -141,7 +234,8 @@ router.put('/:id', facilityController.updateFacility)
  * @swagger
  * /api/facilities/{id}:
  *   delete:
- *     summary: Xóa tiện ích (hard delete)
+ *     operationId: deleteFacility
+ *     summary: Xoá tiện ích (hard delete)
  *     tags: [Facilities]
  *     parameters:
  *       - in: path
@@ -152,9 +246,23 @@ router.put('/:id', facilityController.updateFacility)
  *           format: uuid
  *     responses:
  *       200:
- *         description: Xóa thành công
+ *         description: Xoá thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
  *       404:
  *         description: Không tìm thấy tiện ích
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.delete('/:id', facilityController.deleteFacility)
 
