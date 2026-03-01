@@ -245,4 +245,25 @@ router.put('/:id', buildingController.updateBuilding);
  */
 router.delete('/:id', buildingController.deleteBuilding);
 
+/**
+ * @swagger
+ * /api/buildings/{id}/status:
+ *   patch:
+ *     summary: Bật/Tắt trạng thái hoạt động của Building
+ *     tags: [Buildings]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Cập nhật trạng thái thành công
+ *       404:
+ *         description: Không tìm thấy building
+ */
+router.patch('/:id/status', buildingController.toggleBuildingStatus)
+
 module.exports = router;

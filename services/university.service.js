@@ -87,4 +87,21 @@ const deleteUniversity = async (id) => {
     return { message: `University "${university.name}" deleted successfully` };
 };
 
-module.exports = { getAllUniversities, getUniversityById, createUniversity, updateUniversity, deleteUniversity };
+const toggleUniversityStatus = async (id) => {
+    const university = await University.findByPk(id)
+    if (!university) throw { status: 404, message: 'University not found' }
+
+    university.is_active = !university.is_active
+    await university.save()
+
+    return university
+}
+
+module.exports = { 
+    getAllUniversities, 
+    getUniversityById, 
+    createUniversity, 
+    updateUniversity, 
+    deleteUniversity,
+    toggleUniversityStatus
+};

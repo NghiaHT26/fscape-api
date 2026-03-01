@@ -113,10 +113,24 @@ const deleteLocation = async (req, res) => {
     }
 };
 
+const toggleLocationStatus = async (req, res) => {
+    try {
+        const location = await locationService.toggleLocationStatus(req.params.id)
+        return res.status(200).json({
+            success: true,
+            message: 'Location status updated successfully',
+            data: location
+        })
+    } catch (err) {
+        return handleError(res, err)
+    }
+}
+
 module.exports = {
     getAllLocations,
     getLocationById,
     createLocation,
     updateLocation,
-    deleteLocation
+    deleteLocation,
+    toggleLocationStatus
 };

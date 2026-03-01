@@ -22,8 +22,4 @@ const RoomImage = sequelize.define('RoomImage', {
   underscored: true
 });
 
-/* Relation */
-Room.hasMany(RoomImage, { foreignKey: 'room_id', as: 'images', onDelete: 'CASCADE' });
-RoomImage.belongsTo(Room, { foreignKey: 'room_id', as: 'room' });
-
 module.exports = RoomImage;

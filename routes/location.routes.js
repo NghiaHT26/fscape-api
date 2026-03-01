@@ -189,4 +189,25 @@ router.put('/:id', locationController.updateLocation);
  */
 router.delete('/:id', locationController.deleteLocation);
 
+/**
+ * @swagger
+ * /api/locations/{id}/status:
+ *   patch:
+ *     summary: Bật/Tắt trạng thái hoạt động của Location
+ *     tags: [Locations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Cập nhật trạng thái thành công
+ *       404:
+ *         description: Không tìm thấy location
+ */
+router.patch('/:id/status', locationController.toggleLocationStatus);
+
 module.exports = router;

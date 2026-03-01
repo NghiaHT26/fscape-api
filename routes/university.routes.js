@@ -221,4 +221,25 @@ router.put('/:id', universityController.updateUniversity);
  */
 router.delete('/:id', universityController.deleteUniversity);
 
+/**
+ * @swagger
+ * /api/universities/{id}/status:
+ *   patch:
+ *     summary: Bật/Tắt trạng thái hoạt động của University
+ *     tags: [Universities]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Cập nhật trạng thái thành công
+ *       404:
+ *         description: Không tìm thấy university
+ */
+router.patch('/:id/status', universityController.toggleUniversityStatus)
+
 module.exports = router;

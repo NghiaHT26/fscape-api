@@ -12,6 +12,12 @@ const Facility = sequelize.define('Facility', {
     allowNull: false,
     unique: true
   },
+  image_url: {
+    type: DataTypes.TEXT
+  },
+  description: {
+    type: DataTypes.TEXT
+  },
   is_active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
