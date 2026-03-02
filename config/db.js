@@ -1,9 +1,15 @@
 const { Sequelize } = require("sequelize")
 
+const sharedDefine = {
+  createdAt: "created_at",
+  updatedAt: "updated_at",
+};
+
 const sequelize = process.env.DATABASE_URL
   ? new Sequelize(process.env.DATABASE_URL, {
       dialect: "postgres",
       logging: false,
+      define: sharedDefine,
       dialectOptions: {
         ssl: {
           require: true,
@@ -19,7 +25,8 @@ const sequelize = process.env.DATABASE_URL
         host: process.env.DB_HOST || "localhost",
         port: process.env.DB_PORT || 5432,
         dialect: "postgres",
-        logging: false
+        logging: false,
+        define: sharedDefine,
       }
     )
 
