@@ -1,7 +1,5 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-const Request = require('./request.model');
-const User = require('./user.model');
 
 const RequestStatusHistory = sequelize.define('RequestStatusHistory', {
   id: {
@@ -11,21 +9,19 @@ const RequestStatusHistory = sequelize.define('RequestStatusHistory', {
   },
   request_id: {
     type: DataTypes.UUID,
-    allowNull: false,
-    references: { model: 'requests', key: 'id' }
+    allowNull: false
   },
   from_status: {
-    type: DataTypes.STRING(50), // request_status cũ
+    type: DataTypes.ENUM('PENDING', 'ASSIGNED', 'PRICE_PROPOSED', 'APPROVED', 'IN_PROGRESS', 'DONE', 'COMPLETED', 'REVIEWED', 'REFUNDED', 'CANCELLED'),
     allowNull: true
   },
   to_status: {
-    type: DataTypes.STRING(50), // request_status mới
+    type: DataTypes.ENUM('PENDING', 'ASSIGNED', 'PRICE_PROPOSED', 'APPROVED', 'IN_PROGRESS', 'DONE', 'COMPLETED', 'REVIEWED', 'REFUNDED', 'CANCELLED'),
     allowNull: false
   },
   changed_by: {
     type: DataTypes.UUID,
-    allowNull: true,
-    references: { model: 'users', key: 'id' }
+    allowNull: true
   },
   reason: {
     type: DataTypes.TEXT,
@@ -39,8 +35,9 @@ const RequestStatusHistory = sequelize.define('RequestStatusHistory', {
 });
 
 /* ===== RELATIONS ===== */
-Request.hasMany(RequestStatusHistory, { foreignKey: 'request_id', as: 'status_history' });
-RequestStatusHistory.belongsTo(Request, { foreignKey: 'request_id' });
-RequestStatusHistory.belongsTo(User, { foreignKey: 'changed_by', as: 'modifier' });
+RequestStatusHistory.associate = (models) => {
+  RequestStatusHistory.belongsTo(models.Request, { foreignKey: 'request_id', as: 'request' });
+  RequestStatusHistory.belongsTo(models.User, { foreignKey: 'changed_by', as: 'modifier' });
+};
 
 module.exports = RequestStatusHistory;

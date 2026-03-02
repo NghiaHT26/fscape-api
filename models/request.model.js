@@ -1,8 +1,5 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-const Room = require('./room.model');
-const User = require('./user.model');
-const Asset = require('./asset.model');
 
 const Request = sequelize.define('Request', {
     id: {
@@ -45,10 +42,14 @@ const Request = sequelize.define('Request', {
     related_asset_id: {
         type: DataTypes.UUID,
         allowNull: true
-    }, // Dùng cho loại REPAIR
+    }, 
+    custom_item_description: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
     service_price: {
         type: DataTypes.DECIMAL(15, 2)
-    }, // Giá Staff đề xuất
+    }, 
     completion_note: {
         type: DataTypes.TEXT
     },
@@ -57,16 +58,29 @@ const Request = sequelize.define('Request', {
     },
     feedback_rating: {
         type: DataTypes.SMALLINT
-    }, // 1-5 sao
+    }, 
     feedback_comment: {
         type: DataTypes.TEXT
     },
+    feedback_at: {
+        type: DataTypes.DATE
+    },
     report_reason: {
         type: DataTypes.TEXT
-    }, // Khi resident không hài lòng
+    }, 
+    reported_at: {
+        type: DataTypes.DATE
+    },
     refund_approved: {
         type: DataTypes.BOOLEAN,
         defaultValue: false
+    },
+    refund_approved_by: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    refund_approved_at: {
+        type: DataTypes.DATE
     }
 }, {
     tableName: 'requests',
@@ -75,9 +89,15 @@ const Request = sequelize.define('Request', {
 });
 
 /* Relations */
-Request.belongsTo(Room, { foreignKey: 'room_id', as: 'room' });
-Request.belongsTo(User, { foreignKey: 'resident_id', as: 'resident' });
-Request.belongsTo(User, { foreignKey: 'assigned_staff_id', as: 'staff' });
-Request.belongsTo(Asset, { foreignKey: 'related_asset_id', as: 'asset' });
+Request.associate = (models) => {
+    Request.belongsTo(models.Room, { foreignKey: 'room_id', as: 'room' });
+    Request.belongsTo(models.User, { foreignKey: 'resident_id', as: 'resident' });
+    Request.belongsTo(models.User, { foreignKey: 'assigned_staff_id', as: 'staff' });
+    Request.belongsTo(models.Asset, { foreignKey: 'related_asset_id', as: 'asset' });
+    Request.belongsTo(models.User, { foreignKey: 'refund_approved_by', as: 'refund_approver' });
+    
+    Request.hasMany(models.RequestImage, { foreignKey: 'request_id', as: 'images', onDelete: 'CASCADE' });
+    Request.hasMany(models.RequestStatusHistory, { foreignKey: 'request_id', as: 'status_history', onDelete: 'CASCADE' });
+};
 
 module.exports = Request;
