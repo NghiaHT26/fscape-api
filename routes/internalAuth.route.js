@@ -23,7 +23,7 @@ const authInternal = require('../middlewares/authInternal');
 
 /**
  * @swagger
- * /api/internal/auth/login:
+ * /api/auth/internal/login:
  *   post:
  *     summary: Internal login (Admin / Staff / Manager)
  *     tags: [InternalAuth]
@@ -76,7 +76,7 @@ router.post('/login', authInternal, controller.login);
 
 /**
  * @swagger
- * /api/internal/auth/change-password:
+ * /api/auth/internal/change-password:
  *   post:
  *     summary: Change password (internal user)
  *     tags: [InternalAuth]
@@ -89,15 +89,15 @@ router.post('/login', authInternal, controller.login);
  *           schema:
  *             type: object
  *             required:
- *               - oldPassword
- *               - newPassword
+ *               - old_password
+ *               - new_password
  *             properties:
- *               oldPassword:
+ *               old_password:
  *                 type: string
- *                 example: 123456
- *               newPassword:
+ *                 example: "123456"
+ *               new_password:
  *                 type: string
- *                 example: newPassword123
+ *                 example: "newPassword123"
  *     responses:
  *       200:
  *         description: Password changed successfully

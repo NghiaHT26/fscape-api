@@ -7,8 +7,8 @@ const buildingController = require('../controllers/building.controller');
 /**
  * @swagger
  * tags:
- * - name: Buildings
- * description: Quản lý toà nhà
+ *   - name: Buildings
+ *     description: Quản lý toà nhà
  */
 
 

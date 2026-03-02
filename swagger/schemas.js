@@ -31,6 +31,81 @@
  *           type: integer
  *           example: 5
  *
+ *     # ── User ────────────────────────────────────────────
+ *
+ *     User:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         email:
+ *           type: string
+ *           format: email
+ *         role:
+ *           type: string
+ *           enum: [ADMIN, MANAGER, STAFF, CUSTOMER]
+ *         first_name:
+ *           type: string
+ *         last_name:
+ *           type: string
+ *         phone:
+ *           type: string
+ *         avatar_url:
+ *           type: string
+ *           nullable: true
+ *         building_id:
+ *           type: string
+ *           format: uuid
+ *           nullable: true
+ *         is_active:
+ *           type: boolean
+ *         last_login_at:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *
+ *     UserProfile:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         email:
+ *           type: string
+ *           format: email
+ *         role:
+ *           type: string
+ *           enum: [ADMIN, MANAGER, STAFF, CUSTOMER]
+ *         first_name:
+ *           type: string
+ *         last_name:
+ *           type: string
+ *         phone:
+ *           type: string
+ *         avatar_url:
+ *           type: string
+ *           nullable: true
+ *         building_id:
+ *           type: string
+ *           format: uuid
+ *           nullable: true
+ *         is_active:
+ *           type: boolean
+ *         last_login_at:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *
  *     # ── Location ──────────────────────────────────────────
  *
  *     Location:
