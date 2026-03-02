@@ -287,6 +287,16 @@
  *               description: Các trường đại học lân cận cùng location
  *               items:
  *                 $ref: '#/components/schemas/UniversitySummary'
+ *             rooms:
+ *               type: array
+ *               description: Danh sách phòng thuộc toà nhà (sắp theo floor, room_number)
+ *               items:
+ *                 $ref: '#/components/schemas/Room'
+ *             room_types:
+ *               type: array
+ *               description: Các loại phòng đang có trong toà nhà (unique theo room)
+ *               items:
+ *                 $ref: '#/components/schemas/RoomType'
  *
  *     # ── Facility ──────────────────────────────────────────
  *
