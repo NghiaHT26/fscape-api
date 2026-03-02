@@ -1,7 +1,8 @@
-const express = require('express')
-const router = express.Router()
-const roomController = require('../controllers/room.controller')
-
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
+const roomController = require('../controllers/room.controller');
 /**
  * @swagger
  * tags:
@@ -15,7 +16,8 @@ const roomController = require('../controllers/room.controller')
  *   get:
  *     operationId: getAllRooms
  *     summary: Lấy danh sách phòng (phân trang + lọc)
- *     tags: [Rooms]
+ *     tags:
+ *       - Rooms
  *     parameters:
  *       - in: query
  *         name: page
@@ -60,42 +62,19 @@ const roomController = require('../controllers/room.controller')
  *     responses:
  *       200:
  *         description: Lấy danh sách phòng thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 total:
- *                   type: integer
- *                 page:
- *                   type: integer
- *                 limit:
- *                   type: integer
- *                 totalPages:
- *                   type: integer
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Room'
  *       500:
  *         description: Lỗi server
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/', roomController.getAllRooms)
+router.get('/', roomController.getAllRooms);
 
 /**
  * @swagger
  * /api/rooms/{id}:
  *   get:
  *     operationId: getRoomById
- *     summary: Lấy thông tin phòng theo ID (kèm building, room_type, images, assets)
- *     tags: [Rooms]
+ *     summary: Lấy thông tin phòng theo ID
+ *     tags:
+ *       - Rooms
  *     parameters:
  *       - in: path
  *         name: id
@@ -107,36 +86,23 @@ router.get('/', roomController.getAllRooms)
  *     responses:
  *       200:
  *         description: Lấy phòng thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/Room'
  *       404:
  *         description: Không tìm thấy phòng
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/:id', roomController.getRoomById)
+router.get('/:id', roomController.getRoomById);
 
 /**
  * @swagger
  * /api/rooms:
  *   post:
  *     operationId: createRoom
- *     summary: Tạo phòng mới (có thể kèm gallery_images)
- *     tags: [Rooms]
+ *     summary: Tạo phòng mới (hỗ trợ upload nhiều loại ảnh)
+ *     tags:
+ *       - Rooms
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -151,11 +117,9 @@ router.get('/:id', roomController.getRoomById)
  *               building_id:
  *                 type: string
  *                 format: uuid
- *                 example: "eca636e3-d5a3-46d4-bdd6-fa5371e0b070"
  *               room_type_id:
  *                 type: string
  *                 format: uuid
- *                 example: "871b69e4-306a-4dea-865d-5b9827937a42"
  *               floor:
  *                 type: integer
  *                 example: 1
@@ -163,55 +127,51 @@ router.get('/:id', roomController.getRoomById)
  *                 type: string
  *                 enum: [AVAILABLE, OCCUPIED, LOCKED]
  *                 default: AVAILABLE
- *               thumbnail_url:
+ *               thumbnail:
  *                 type: string
- *               image_3d_url:
+ *                 format: binary
+ *                 description: Ảnh đại diện (1 file)
+ *               image_3d:
  *                 type: string
- *               blueprint_url:
+ *                 format: binary
+ *                 description: Ảnh 3D (1 file)
+ *               blueprint:
  *                 type: string
+ *                 format: binary
+ *                 description: Bản vẽ mặt bằng (1 file)
  *               gallery_images:
  *                 type: array
- *                 description: Danh sách URL hình ảnh phòng (sẽ tạo RoomImage records)
  *                 items:
  *                   type: string
- *                 example: ["https://example.com/img1.jpg", "https://example.com/img2.jpg"]
+ *                   format: binary
+ *                 description: Danh sách ảnh thực tế (tối đa 10)
  *     responses:
  *       201:
  *         description: Tạo phòng thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                 data:
- *                   $ref: '#/components/schemas/Room'
  *       400:
- *         description: Thiếu dữ liệu bắt buộc hoặc Building/RoomType không tồn tại
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         description: Thiếu dữ liệu bắt buộc
  *       409:
  *         description: Trùng room_number trong cùng building
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/', roomController.createRoom)
+router.post(
+  '/',
+  upload.fields([
+    { name: 'thumbnail', maxCount: 1 },
+    { name: 'image_3d', maxCount: 1 },
+    { name: 'blueprint', maxCount: 1 },
+    { name: 'gallery_images', maxCount: 10 }
+  ]),
+  roomController.createRoom
+);
 
 /**
  * @swagger
  * /api/rooms/{id}:
  *   put:
  *     operationId: updateRoom
- *     summary: Cập nhật phòng (gửi gallery_images sẽ xoá ảnh cũ và thay bằng danh sách mới)
- *     tags: [Rooms]
+ *     summary: Cập nhật phòng
+ *     tags:
+ *       - Rooms
  *     parameters:
  *       - in: path
  *         name: id
@@ -220,9 +180,9 @@ router.post('/', roomController.createRoom)
  *           type: string
  *           format: uuid
  *     requestBody:
- *       required: true
+ *       required: false
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -239,52 +199,38 @@ router.post('/', roomController.createRoom)
  *               status:
  *                 type: string
  *                 enum: [AVAILABLE, OCCUPIED, LOCKED]
- *               thumbnail_url:
+ *               thumbnail:
  *                 type: string
- *               image_3d_url:
+ *                 format: binary
+ *                 description: Cập nhật ảnh đại diện
+ *               image_3d:
  *                 type: string
- *               blueprint_url:
+ *                 format: binary
+ *               blueprint:
  *                 type: string
+ *                 format: binary
  *               gallery_images:
  *                 type: array
- *                 description: Gửi mảng này sẽ replace toàn bộ RoomImage cũ
  *                 items:
  *                   type: string
+ *                   format: binary
+ *                 description: Gửi danh sách ảnh mới (ghi đè)
  *     responses:
  *       200:
  *         description: Cập nhật thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                 data:
- *                   $ref: '#/components/schemas/Room'
- *       400:
- *         description: Body rỗng
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: Không tìm thấy phòng
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       409:
- *         description: Trùng room_number
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/:id', roomController.updateRoom)
+router.put(
+  '/:id',
+  upload.fields([
+    { name: 'thumbnail', maxCount: 1 },
+    { name: 'image_3d', maxCount: 1 },
+    { name: 'blueprint', maxCount: 1 },
+    { name: 'gallery_images', maxCount: 10 }
+  ]),
+  roomController.updateRoom
+);
 
 /**
  * @swagger
@@ -292,7 +238,8 @@ router.put('/:id', roomController.updateRoom)
  *   delete:
  *     operationId: deleteRoom
  *     summary: Xoá phòng (hard delete)
- *     tags: [Rooms]
+ *     tags:
+ *       - Rooms
  *     parameters:
  *       - in: path
  *         name: id
@@ -303,23 +250,9 @@ router.put('/:id', roomController.updateRoom)
  *     responses:
  *       200:
  *         description: Xoá thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
  *       404:
  *         description: Không tìm thấy phòng
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete('/:id', roomController.deleteRoom)
+router.delete('/:id', roomController.deleteRoom);
 
-module.exports = router
+module.exports = router;

@@ -1,150 +1,132 @@
-const { Op } = require('sequelize')
-const Room = require('../models/room.model')
-const Building = require('../models/building.model')
-const RoomType = require('../models/roomType.model')
-const RoomImage = require('../models/roomImage.model')
-const Asset = require('../models/asset.model')
-const Facility = require('../models/facility.model')
+const { Op } = require('sequelize');
+const { sequelize } = require('../config/db');
+const Room = require('../models/room.model');
+const RoomImage = require('../models/roomImage.model');
+const Building = require('../models/building.model');
+const RoomType = require('../models/roomType.model');
 
-/* ===== COMMON INCLUDE ===== */
-const ROOM_INCLUDE = [
-    { model: Building, as: 'building', attributes: ['id', 'name', 'address'] },
-    { model: RoomType, as: 'room_type', attributes: ['id', 'name', 'base_price', 'deposit_months'] },
-    { model: RoomImage, as: 'images', attributes: ['id', 'image_url'] },
-    { model: Asset, as: 'assets', attributes: ['id', 'name', 'status', 'qr_code'] },
-]
+const getAllRooms = async ({ page = 1, limit = 10, building_id, room_type_id, status, floor, search } = {}) => {
+    const offset = (page - 1) * limit;
+    const where = {};
 
-const getAllRooms = async ({
-    page = 1,
-    limit = 10,
-    status,
-    building_id,
-    room_type_id,
-    search,
-    floor
-} = {}) => {
-
-    page = Number(page)
-    limit = Number(limit)
-    const offset = (page - 1) * limit
-
-    const where = {}
-
-    if (status)
-        where.status = status.toUpperCase()
-
-    if (building_id && typeof building_id === 'string')
-        where.building_id = building_id
-
-    if (room_type_id && typeof room_type_id === 'string')
-        where.room_type_id = room_type_id
-
-    if (floor !== undefined && floor !== null)
-        where.floor = Number(floor)
-
-    if (search)
-        where.room_number = { [Op.iLike]: `%${search}%` }
+    if (building_id) where.building_id = building_id;
+    if (room_type_id) where.room_type_id = room_type_id;
+    if (status) where.status = status;
+    if (floor !== undefined) where.floor = floor;
+    if (search) where.room_number = { [Op.iLike]: `%${search}%` };
 
     const { count, rows } = await Room.findAndCountAll({
         where,
-        include: ROOM_INCLUDE,
-        distinct: true,
-        limit,
-        offset,
-        order: [['floor', 'ASC'], ['room_number', 'ASC']]
-    })
+        include: [
+            { model: Building, as: 'building', attributes: ['id', 'name'] },
+            { model: RoomType, as: 'room_type', attributes: ['id', 'name', 'base_price'] }
+        ],
+        limit: Number(limit),
+        offset: Number(offset),
+        order: [['created_at', 'DESC']]
+    });
 
     return {
         total: count,
-        page,
-        limit,
+        page: Number(page),
+        limit: Number(limit),
         totalPages: Math.ceil(count / limit),
         data: rows
-    }
-}
+    };
+};
 
 const getRoomById = async (id) => {
-    const room = await Room.findByPk(id, { include: ROOM_INCLUDE })
-    if (!room) throw { status: 404, message: 'Room not found' }
-    return room
-}
+    const room = await Room.findByPk(id, {
+        include: [
+            { model: Building, as: 'building' },
+            { model: RoomType, as: 'room_type' },
+            { model: RoomImage, as: 'images', attributes: ['id', 'image_url'] }
+        ]
+    });
+
+    if (!room) throw { status: 404, message: 'Room not found' };
+    return room;
+};
 
 const createRoom = async (data) => {
+    const { gallery_images, ...roomData } = data;
 
-    const {
-        room_number,
-        building_id,
-        room_type_id,
-        floor,
-        gallery_images = [],
-        ...rest
-    } = data
+    // Check trùng room_number trong cùng building
+    const existingRoom = await Room.findOne({
+        where: { building_id: roomData.building_id, room_number: roomData.room_number }
+    });
+    if (existingRoom) {
+        throw { status: 409, message: `Room number ${roomData.room_number} already exists in this building` };
+    }
 
-    const building = await Building.findByPk(building_id)
-    if (!building) throw { status: 400, message: 'Building not found' }
+    const transaction = await sequelize.transaction();
+    try {
+        const room = await Room.create(roomData, { transaction });
 
-    const roomType = await RoomType.findByPk(room_type_id)
-    if (!roomType) throw { status: 400, message: 'Room type not found' }
+        // Lưu danh sách ảnh thực tế
+        if (gallery_images && gallery_images.length > 0) {
+            const imageRecords = gallery_images.map(url => ({
+                room_id: room.id,
+                image_url: url
+            }));
+            await RoomImage.bulkCreate(imageRecords, { transaction });
+        }
 
-    const duplicate = await Room.findOne({ where: { building_id, room_number } })
-    if (duplicate) throw { status: 409, message: 'Room already exists in this building' }
-
-    const room = await Room.create({
-        room_number,
-        building_id,
-        room_type_id,
-        floor,
-        status: data.status?.toUpperCase() || 'AVAILABLE',
-        ...rest
-    })
-
-    if (gallery_images.length)
-        await RoomImage.bulkCreate(
-            gallery_images.map(url => ({ room_id: room.id, image_url: url }))
-        )
-
-    return getRoomById(room.id)
-}
+        await transaction.commit();
+        return getRoomById(room.id);
+    } catch (error) {
+        await transaction.rollback();
+        throw error;
+    }
+};
 
 const updateRoom = async (id, data) => {
+    const { gallery_images, ...updateData } = data;
+    
+    const room = await Room.findByPk(id);
+    if (!room) throw { status: 404, message: 'Room not found' };
 
-    const { gallery_images, ...updateData } = data
+    // Check trùng room_number nếu có thay đổi
+    if (updateData.room_number && updateData.room_number !== room.room_number) {
+        const existingRoom = await Room.findOne({
+            where: { building_id: room.building_id, room_number: updateData.room_number }
+        });
+        if (existingRoom) {
+            throw { status: 409, message: `Room number ${updateData.room_number} already exists in this building` };
+        }
+    }
 
-    const room = await Room.findByPk(id)
-    if (!room) throw { status: 404, message: 'Room not found' }
+    const transaction = await sequelize.transaction();
+    try {
+        await room.update(updateData, { transaction });
 
-    if (updateData.room_number || updateData.building_id) {
-        const duplicate = await Room.findOne({
-            where: {
-                building_id: updateData.building_id || room.building_id,
-                room_number: updateData.room_number || room.room_number,
-                id: { [Op.ne]: id }
+        // Ghi đè danh sách ảnh gallery mới (nếu client gửi lên)
+        if (gallery_images) {
+            await RoomImage.destroy({ where: { room_id: id }, transaction });
+            if (gallery_images.length > 0) {
+                const imageRecords = gallery_images.map(url => ({
+                    room_id: id,
+                    image_url: url
+                }));
+                await RoomImage.bulkCreate(imageRecords, { transaction });
             }
-        })
-        if (duplicate) throw { status: 409, message: 'Room number already taken' }
+        }
+
+        await transaction.commit();
+        return getRoomById(id);
+    } catch (error) {
+        await transaction.rollback();
+        throw error;
     }
-
-    await room.update(updateData)
-
-    if (gallery_images) {
-        await RoomImage.destroy({ where: { room_id: id } })
-        if (gallery_images.length)
-            await RoomImage.bulkCreate(
-                gallery_images.map(url => ({ room_id: id, image_url: url }))
-            )
-    }
-
-    return getRoomById(id)
-}
+};
 
 const deleteRoom = async (id) => {
+    const room = await Room.findByPk(id);
+    if (!room) throw { status: 404, message: 'Room not found' };
 
-    const room = await Room.findByPk(id)
-    if (!room) throw { status: 404, message: 'Room not found' }
-
-    await room.destroy()
-    return { message: `Room "${room.room_number}" deleted successfully` }
-}
+    await room.destroy();
+    return { message: `Room ${room.room_number} deleted successfully` };
+};
 
 module.exports = {
     getAllRooms,
@@ -152,4 +134,4 @@ module.exports = {
     createRoom,
     updateRoom,
     deleteRoom
-}
+};
