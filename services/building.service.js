@@ -6,6 +6,8 @@ const BuildingImage = require('../models/buildingImage.model');
 const Facility = require('../models/facility.model');
 const BuildingFacility = require('../models/buildingFacility.model');
 const University = require('../models/university.model');
+const Room = require('../models/room.model');
+const RoomType = require('../models/roomType.model');
 
 const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_active } = {}) => {
     const offset = (page - 1) * limit;
@@ -48,6 +50,23 @@ const getBuildingById = async (id) => {
     
     if (!building) throw { status: 404, message: 'Building not found' };
 
+    const rooms = await Room.findAll({
+        where: { building_id: id },
+        order: [['floor', 'ASC'], ['room_number', 'ASC']]
+    });
+
+    const uniqueRoomTypeIds = [...new Set(rooms.map(room => room.room_type_id))];
+
+    // 4. Query lấy thông tin chi tiết của các Room Types đó
+    let roomTypes = [];
+    if (uniqueRoomTypeIds.length > 0) {
+        roomTypes = await RoomType.findAll({
+            where: {
+                id: uniqueRoomTypeIds
+            }
+        });
+    }
+
     const nearbyUniversities = await University.findAll({
         where: { location_id: building.location_id, is_active: true },
         attributes: ['id', 'name', 'address', 'latitude', 'longitude']
@@ -55,6 +74,8 @@ const getBuildingById = async (id) => {
 
     const buildingData = building.toJSON();
     buildingData.nearby_universities = nearbyUniversities;
+    buildingData.rooms = rooms;
+    buildingData.room_types = roomTypes;
 
     return buildingData;
 };

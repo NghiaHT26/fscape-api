@@ -15,7 +15,6 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }))
 // ─── Routes ────────────────────────────────────────────────
 app.use('/api/rooms', require('./routes/room.routes'))
 app.use('/api/room-types', require('./routes/roomType.routes'))
-app.use('/api/room-images', require('./routes/roomImage.routes'))
 app.use('/api/assets', require('./routes/asset.routes'))
 app.use('/api/locations', require('./routes/location.routes'));     //
 app.use('/api/universities', require('./routes/university.routes')); //

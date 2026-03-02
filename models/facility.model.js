@@ -29,9 +29,9 @@ const Facility = sequelize.define('Facility', {
 });
 
 Facility.associate = (models) => {
-  Facility.belongsToMany(models.Building, { 
-    through: models.BuildingFacility, 
-    foreignKey: 'facility_id', 
+  Facility.belongsToMany(models.Building, {
+    through: models.BuildingFacility,
+    foreignKey: 'facility_id',
     otherKey: 'building_id',
     as: 'buildings'
   });

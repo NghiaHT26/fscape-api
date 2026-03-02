@@ -1,5 +1,7 @@
 const express = require('express')
 const router = express.Router()
+const multer = require('multer')
+const upload = multer({ storage: multer.memoryStorage() })
 const facilityController = require('../controllers/facility.controller')
 
 /**
@@ -117,13 +119,12 @@ router.get('/:id', facilityController.getFacilityById)
  * @swagger
  * /api/facilities:
  *   post:
- *     operationId: createFacility
- *     summary: Tạo tiện ích mới (master data)
+ *     summary: Tạo tiện ích mới (có upload ảnh)
  *     tags: [Facilities]
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -131,52 +132,36 @@ router.get('/:id', facilityController.getFacilityById)
  *             properties:
  *               name:
  *                 type: string
- *                 example: "Phòng gym"
+ *                 example: "Gym"
  *               description:
  *                 type: string
- *                 example: "Phòng tập thể dục trong khuôn viên"
+ *                 example: "Phòng tập thể dục"
  *               image_url:
  *                 type: string
- *                 example: "https://cdn.com/icons/gym.png"
+ *                 format: binary
+ *                 description: Ảnh đại diện tiện ích
  *               is_active:
  *                 type: boolean
- *                 default: true
+ *                 example: true
  *     responses:
  *       201:
- *         description: Tạo tiện ích thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                 data:
- *                   $ref: '#/components/schemas/Facility'
+ *         description: Tạo thành công
  *       400:
- *         description: Thiếu tên tiện ích
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         description: Thiếu dữ liệu
  *       409:
- *         description: Tên tiện ích đã tồn tại
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         description: Tên đã tồn tại
  */
-router.post('/', facilityController.createFacility)
+router.post(
+  '/',
+  upload.single('image_url'),
+  facilityController.createFacility
+)
 
 /**
  * @swagger
  * /api/facilities/{id}:
  *   put:
- *     operationId: updateFacility
- *     summary: Cập nhật tiện ích
+ *     summary: Cập nhật tiện ích (có thể upload lại ảnh)
  *     tags: [Facilities]
  *     parameters:
  *       - in: path
@@ -186,9 +171,9 @@ router.post('/', facilityController.createFacility)
  *           type: string
  *           format: uuid
  *     requestBody:
- *       required: true
+ *       required: false
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -198,44 +183,26 @@ router.post('/', facilityController.createFacility)
  *                 type: string
  *               image_url:
  *                 type: string
+ *                 format: binary
  *               is_active:
  *                 type: boolean
  *     responses:
  *       200:
  *         description: Cập nhật thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                 data:
- *                   $ref: '#/components/schemas/Facility'
  *       404:
- *         description: Không tìm thấy tiện ích
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       409:
- *         description: Tên tiện ích đã tồn tại
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         description: Không tìm thấy
  */
-router.put('/:id', facilityController.updateFacility)
+router.put(
+  '/:id',
+  upload.single('image_url'),
+  facilityController.updateFacility
+)
 
 /**
  * @swagger
  * /api/facilities/{id}:
  *   delete:
- *     operationId: deleteFacility
- *     summary: Xoá tiện ích (hard delete)
+ *     summary: Xoá tiện ích
  *     tags: [Facilities]
  *     parameters:
  *       - in: path
@@ -247,22 +214,8 @@ router.put('/:id', facilityController.updateFacility)
  *     responses:
  *       200:
  *         description: Xoá thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
  *       404:
- *         description: Không tìm thấy tiện ích
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         description: Không tìm thấy
  */
 router.delete('/:id', facilityController.deleteFacility)
 
