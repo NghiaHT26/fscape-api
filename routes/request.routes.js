@@ -209,10 +209,21 @@ router.patch('/:id/assign', upload.none(), requestController.assignRequest);
  *               - status
  *               - changed_by
  *             properties:
- *             changed_by:
  *               status:
  *                 type: string
- *                 enum: [PRICE_PROPOSED, APPROVED, IN_PROGRESS, DONE, COMPLETED, REVIEWED, REFUNDED, CANCELLED]
+ *                 enum:
+ *                   - PRICE_PROPOSED
+ *                   - APPROVED
+ *                   - IN_PROGRESS
+ *                   - DONE
+ *                   - COMPLETED
+ *                   - REVIEWED
+ *                   - REFUNDED
+ *                   - CANCELLED
+ *               changed_by:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID người thay đổi trạng thái (Staff hoặc Resident)
  *               service_price:
  *                 type: number
  *                 description: Staff nhập khi báo giá (PRICE_PROPOSED)
@@ -226,7 +237,7 @@ router.patch('/:id/assign', upload.none(), requestController.assignRequest);
  *                 type: integer
  *                 minimum: 1
  *                 maximum: 5
- *                 description: Resident vote sao (1-5) (COMPLETED)
+ *                 description: Resident vote sao (1-5) khi COMPLETED
  *               feedback_comment:
  *                 type: string
  *               images:
@@ -240,9 +251,9 @@ router.patch('/:id/assign', upload.none(), requestController.assignRequest);
  *         description: Cập nhật trạng thái thành công
  */
 router.patch(
-    '/:id/status',
-    upload.array('images', 5),
-    requestController.updateRequestStatus
+  '/:id/status',
+  upload.array('images', 5),
+  requestController.updateRequestStatus
 );
 
 module.exports = router;
