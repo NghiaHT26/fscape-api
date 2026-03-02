@@ -22,7 +22,7 @@ app.use('/api/buildings', require('./routes/building.routes'));      //
 app.use('/api/facilities', require('./routes/facility.routes'));     //
 app.use('/api/building-facilities', require('./routes/buildingFacility.routes')); //
 app.use('/api/requests', require('./routes/request.routes')); 
-app.use('/auth/internal', require('./routes/internalAuth.route'));
+app.use('/api/auth/internal', require('./routes/internalAuth.route'));
 app.use('/api/admin/users', require('./routes/adminUser.route'));
 app.use('/api/service-types', require('./routes/serviceType.routes')); //
 app.use('/api/auth', require('./routes/auth.route'));

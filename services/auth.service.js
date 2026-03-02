@@ -41,21 +41,41 @@ class AuthService {
   }
 
   static async signin(email, password) {
-    const auth = await AuthProvider.findOne({
-      where: { provider: 'EMAIL', provider_id: email },
-      include: [User],
-    });
+  const auth = await AuthProvider.findOne({
+    where: { provider: 'EMAIL', provider_id: email },
+    include: [
+      {
+        model: User,
+        attributes: [
+          'id',
+          'email',
+          'role',
+          'first_name',
+          'last_name',
+          'phone',
+          'avatar_url',
+          'building_id',
+          'is_active',
+          'last_login_at',
+          'created_at',
+        ],
+      },
+    ],
+  });
 
-    if (!auth || !auth.is_verified)
-      throw new Error('Invalid credentials');
+  if (!auth || !auth.is_verified)
+    throw new Error('Invalid credentials');
 
-    const match = await comparePassword(password, auth.password_hash);
-    if (!match) throw new Error('Invalid credentials');
+  const match = await comparePassword(password, auth.password_hash);
+  if (!match) throw new Error('Invalid credentials');
 
-    return {
-      access_token: generateAccessToken(auth.User),
-    };
-  }
+  await auth.User.update({ last_login_at: new Date() });
+
+  return {
+    access_token: generateAccessToken(auth.User),
+    user: auth.User, //return user data
+  };
+}
 
   static async forgotPassword(email) {
     const otp = await generateOtp(email, 'PASSWORD_RESET');
