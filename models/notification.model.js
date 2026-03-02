@@ -8,8 +8,16 @@ const Notification = sequelize.define('Notification', {
     primaryKey: true,
     defaultValue: DataTypes.UUIDV4
   },
-  type: {
-    type: DataTypes.ENUM('CONTRACT_PENDING', 'INVOICE_GENERATED', 'MAINTENANCE_REQUEST', 'GENERAL_ANNOUNCEMENT'),
+type: {
+    type: DataTypes.ENUM(
+      'CONTRACT_PENDING', 
+      'INVOICE_GENERATED', 
+      'MAINTENANCE_REQUEST', 
+      'REQUEST_ASSIGNED',        // Thêm mới
+      'REQUEST_STATUS_CHANGED',  // Thêm mới
+      'REQUEST_REPORTED',        // Thêm mới
+      'GENERAL_ANNOUNCEMENT'
+    ),
     allowNull: false
   },
   title: {
@@ -26,7 +34,7 @@ const Notification = sequelize.define('Notification', {
   },
   target_id: {
     type: DataTypes.UUID,
-    allowNull: true // NULL nếu gửi cho 'ALL'
+    allowNull: true
   },
   reference_type: {
     type: DataTypes.ENUM('CONTRACT', 'INVOICE', 'REQUEST'),
