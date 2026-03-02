@@ -3,7 +3,7 @@ const router = express.Router();
 
 const controller = require('../controllers/internalAuth.controller');
 const authJwt = require('../middlewares/authJwt');
-
+const authInternal = require('../middlewares/authInternal');
 /**
  * @swagger
  * tags:
@@ -72,7 +72,7 @@ const authJwt = require('../middlewares/authJwt');
  *       400:
  *         description: Invalid email or password / Account inactive
  */
-router.post('/login', controller.login);
+router.post('/login', authInternal, controller.login);
 
 /**
  * @swagger
@@ -110,6 +110,6 @@ router.post('/login', controller.login);
  *       404:
  *         description: User not found
  */
-router.post('/change-password', authJwt, controller.changePassword);
+router.post('/change-password', authInternal, authJwt, controller.changePassword);
 
 module.exports = router;

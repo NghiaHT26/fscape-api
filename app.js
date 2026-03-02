@@ -26,4 +26,5 @@ app.use('/api/auth/internal', require('./routes/internalAuth.route'));
 app.use('/api/admin/users', require('./routes/adminUser.route'));
 app.use('/api/service-types', require('./routes/serviceType.routes')); //
 app.use('/api/auth', require('./routes/auth.route'));
+app.use('/api/user-profile', require('./routes/userProfile.route'));
 module.exports = app
