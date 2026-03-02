@@ -1,9 +1,19 @@
+// utils/token.util.js
 const jwt = require('jsonwebtoken');
 
-exports.generateAccessToken = (user) => {
+const generateAccessToken = (user) => {
   return jwt.sign(
-    { id: user.id, role: user.role },
+    {
+      sub: user.id,
+      role: user.role
+    },
     process.env.JWT_SECRET,
-    { expiresIn: '15m' }
+    {
+      expiresIn: '1h'
+    }
   );
+};
+
+module.exports = {
+  generateAccessToken
 };
