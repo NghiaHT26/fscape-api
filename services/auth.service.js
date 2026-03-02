@@ -11,31 +11,61 @@ const { generateAccessToken } = require('../utils/token.util');
 class AuthService {
   // STEP 1: signup -> send OTP
   static async signup(email, password) {
-    const existed = await User.findOne({ where: { email } });
-    if (existed) throw new Error('Email already exists');
+    let user = await User.findOne({ where: { email } });
+    let authProvider = null;
+
+    if (user) {
+      authProvider = await AuthProvider.findOne({
+        where: { user_id: user.id, provider: 'EMAIL' }
+      });
+
+      if (authProvider && authProvider.is_verified) {
+        throw new Error('Email already exists and is verified');
+      }
+    } else {
+      user = await User.create({
+        email,
+        role: 'CUSTOMER',
+      });
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    if (authProvider) {
+      authProvider.password_hash = hashedPassword;
+      await authProvider.save();
+    } else {
+      await AuthProvider.create({
+        user_id: user.id,
+        provider: 'EMAIL',
+        provider_id: email,
+        password_hash: hashedPassword,
+        is_verified: false,
+      });
+    }
 
     const otp = await generateOtp(email, 'EMAIL_VERIFICATION');
     await sendOtpMail(email, otp.code);
 
-    return { message: 'OTP sent to email' };
+    return { message: 'OTP sent to email. Please verify to complete registration.' };
   }
 
-  // STEP 2: verify OTP + create user
-  static async verifySignup(email, password, otp) {
+  // STEP 2: verify OTP + activate user
+  static async verifySignup(email, otp) {
     await verifyOtp(email, otp, 'EMAIL_VERIFICATION');
 
-    const user = await User.create({
-      email,
-      role: 'CUSTOMER',
+    const user = await User.findOne({ where: { email } });
+    if (!user) throw new Error('User not found');
+
+    const authProvider = await AuthProvider.findOne({
+      where: { user_id: user.id, provider: 'EMAIL' }
     });
 
-    await AuthProvider.create({
-      user_id: user.id,
-      provider: 'EMAIL',
-      provider_id: email,
-      password_hash: await hashPassword(password),
-      is_verified: true,
-    });
+    if (!authProvider) throw new Error('Auth provider not found');
+    if (authProvider.is_verified) throw new Error('User is already verified');
+
+    authProvider.is_verified = true;
+    await authProvider.save();
 
     return user;
   }
