@@ -6,7 +6,7 @@ const validate = require('../middlewares/validateResult');
 
 router.post('/signup', validator.signup, validate, controller.signup);
 router.post('/signup/verify', validator.verifySignup, validate, controller.verifySignup);
-router.post('/signin', validator.signin, validate, controller.signin);
+router.post('/login', validator.signin, validate, controller.signin);
 router.post('/forgot-password', validator.forgotPassword, validate, controller.forgotPassword);
 router.post('/reset-password', validator.resetPassword, validate, controller.resetPassword);
 

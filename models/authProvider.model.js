@@ -1,6 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-
+const User = require('./user.model');
 const PROVIDER_TYPE = ['EMAIL', 'GOOGLE']; 
 
 const AuthProvider = sequelize.define(
@@ -47,5 +47,7 @@ const AuthProvider = sequelize.define(
     timestamps: true,
   }
 );
-
+AuthProvider.belongsTo(User, {
+  foreignKey: 'user_id',
+});
 module.exports = { AuthProvider, PROVIDER_TYPE };
