@@ -31,7 +31,7 @@ const getAllLocations = async ({ page = 1, limit = 10, search, is_active } = {})
         total: count,
         page: Number(page),
         limit: Number(limit),
-        totalPages: Math.ceil(count / limit),
+        total_pages: Math.ceil(count / limit),
         data: rows
     };
 };

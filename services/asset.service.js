@@ -37,7 +37,7 @@ const getAllAssets = async ({ page = 1, limit = 10, building_id, current_room_id
         total: count,
         page: Number(page),
         limit: Number(limit),
-        totalPages: Math.ceil(count / limit),
+        total_pages: Math.ceil(count / limit),
         data: rows
     };
 };

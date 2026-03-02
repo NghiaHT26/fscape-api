@@ -1,4 +1,3 @@
-const cloudinary = require('../config/cloudinary');
 const buildingService = require('../services/building.service');
 
 const handleError = (res, err) => {
@@ -11,7 +10,8 @@ const handleError = (res, err) => {
 // GET /api/buildings
 const getAllBuildings = async (req, res) => {
     try {
-        const result = await buildingService.getAllBuildings(req.query);
+        const role = req.user?.role || null;
+        const result = await buildingService.getAllBuildings(req.query, role);
         return res.status(200).json({ success: true, ...result });
     } catch (err) {
         return handleError(res, err);
@@ -21,26 +21,22 @@ const getAllBuildings = async (req, res) => {
 // GET /api/buildings/:id
 const getBuildingById = async (req, res) => {
     try {
-        const building = await buildingService.getBuildingById(req.params.id);
+        const role = req.user?.role || null;
+        const building = await buildingService.getBuildingById(req.params.id, role);
         return res.status(200).json({ success: true, data: building });
     } catch (err) {
         return handleError(res, err);
     }
 };
 
-// POST /api/buildings
+// POST /api/buildings (JSON body, ảnh đã upload trước qua /api/upload)
 const createBuilding = async (req, res) => {
     try {
         const {
-            location_id,
-            name,
-            address,
-            latitude,
-            longitude,
-            description,
-            total_floors,
-            is_active,
-            facilities 
+            location_id, name, address, latitude, longitude,
+            description, total_floors, thumbnail_url, is_active,
+            images,
+            facilities
         } = req.body;
 
         if (!location_id || !name || !address || latitude === undefined || longitude === undefined) {
@@ -50,57 +46,15 @@ const createBuilding = async (req, res) => {
             });
         }
 
-        let thumbnailUrl = null;
-        let imageUrls = [];
-
-        // 1. Xử lý upload ảnh Thumbnail (nếu người dùng có chọn file tên 'thumbnail_url')
-        if (req.files && req.files['thumbnail_url'] && req.files['thumbnail_url'].length > 0) {
-            const file = req.files['thumbnail_url'][0];
-            const result = await cloudinary.uploader.upload(
-                `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
-                { folder: 'buildings' }
-            );
-            thumbnailUrl = result.secure_url;
-        }
-
-        // 2. Xử lý upload danh sách ảnh Images (nếu người dùng có chọn file tên 'images')
-        if (req.files && req.files['image_url'] && req.files['image_url'].length > 0) {
-            for (const file of req.files['image_url']) {
-                const result = await cloudinary.uploader.upload(
-                    `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
-                    { folder: 'buildings' }
-                );
-                imageUrls.push(result.secure_url);
-            }
-        }
-
-        // Fallback: Nếu không up thumbnail nhưng có up images, lấy tạm ảnh đầu tiên làm thumbnail
-        if (!thumbnailUrl && imageUrls.length > 0) {
-            thumbnailUrl = imageUrls[0];
-        }
-
-        // 3. Xử lý mảng facilities
-        let parsedFacilities = [];
-        if (facilities) {
-            if (Array.isArray(facilities)) {
-                parsedFacilities = facilities;
-            } else if (typeof facilities === 'string') {
-                parsedFacilities = [facilities];
-            }
-        }
+        const resolvedThumbnail = thumbnail_url || null;
 
         const building = await buildingService.createBuilding({
-            location_id,
-            name,
-            address,
-            latitude,
-            longitude,
-            description,
-            total_floors,
-            thumbnail_url: thumbnailUrl, // Truyền link đã upload
+            location_id, name, address, latitude, longitude,
+            description, total_floors,
+            thumbnail_url: resolvedThumbnail,
             is_active,
-            images: imageUrls,           // Truyền mảng link ảnh
-            facilities: parsedFacilities
+            images: images || [],
+            facilities: Array.isArray(facilities) ? facilities : (facilities ? [facilities] : [])
         });
 
         return res.status(201).json({
@@ -108,45 +62,18 @@ const createBuilding = async (req, res) => {
             message: 'Building created successfully',
             data: building
         });
-
     } catch (err) {
         return handleError(res, err);
     }
 };
 
-// PUT /api/buildings/:id
+// PUT /api/buildings/:id (JSON body)
 const updateBuilding = async (req, res) => {
     try {
         const updateData = { ...req.body };
-        
-        // 1. Xử lý ảnh thumbnail mới
-        if (req.files && req.files['thumbnail_url'] && req.files['thumbnail_url'].length > 0) {
-            const file = req.files['thumbnail_url'][0];
-            const result = await cloudinary.uploader.upload(
-                `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
-                { folder: 'buildings' }
-            );
-            updateData.thumbnail_url = result.secure_url;
-        }
 
-        // 2. Xử lý danh sách ảnh mới
-        if (req.files && req.files['image_url'] && req.files['image_url'].length > 0) {
-            let imageUrls = [];
-            for (const file of req.files['image_url']) {
-                const result = await cloudinary.uploader.upload(
-                    `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
-                    { folder: 'buildings' }
-                );
-                imageUrls.push(result.secure_url);
-            }
-            updateData.images = imageUrls;
-        }
-
-        // 3. Xử lý mảng facilities
-        if (updateData.facilities) {
-            if (!Array.isArray(updateData.facilities)) {
-                updateData.facilities = [updateData.facilities];
-            }
+        if (updateData.facilities && !Array.isArray(updateData.facilities)) {
+            updateData.facilities = [updateData.facilities];
         }
 
         const building = await buildingService.updateBuilding(req.params.id, updateData);
@@ -156,22 +83,19 @@ const updateBuilding = async (req, res) => {
             message: 'Building updated successfully',
             data: building
         });
-
     } catch (err) {
         return handleError(res, err);
     }
 };
+
 // DELETE /api/buildings/:id
 const deleteBuilding = async (req, res) => {
     try {
         const result = await buildingService.deleteBuilding(req.params.id);
-
         return res.status(200).json({
             success: true,
-            message: 'Building deleted successfully',
             ...result
         });
-
     } catch (err) {
         return handleError(res, err);
     }
@@ -180,16 +104,16 @@ const deleteBuilding = async (req, res) => {
 // PATCH /api/buildings/:id/status
 const toggleBuildingStatus = async (req, res) => {
     try {
-        const building = await buildingService.toggleBuildingStatus(req.params.id)
+        const building = await buildingService.toggleBuildingStatus(req.params.id);
         return res.status(200).json({
             success: true,
             message: 'Building status updated successfully',
             data: building
-        })
+        });
     } catch (err) {
-        return handleError(res, err)
+        return handleError(res, err);
     }
-}
+};
 
 module.exports = {
     getAllBuildings,

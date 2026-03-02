@@ -1,4 +1,3 @@
-const cloudinary = require('../config/cloudinary');
 const requestService = require('../services/request.service');
 
 const handleError = (res, err) => {
@@ -8,17 +7,9 @@ const handleError = (res, err) => {
     return res.status(status).json({ success: false, message });
 };
 
-const uploadToCloudinary = async (file) => {
-    const result = await cloudinary.uploader.upload(
-        `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
-        { folder: 'requests' }
-    );
-    return result.secure_url;
-};
-
 const getAllRequests = async (req, res) => {
     try {
-        const result = await requestService.getAllRequests(req.query);
+        const result = await requestService.getAllRequests(req.query, req.user);
         return res.status(200).json({ success: true, ...result });
     } catch (err) {
         return handleError(res, err);
@@ -34,7 +25,7 @@ const getRequestById = async (req, res) => {
     }
 };
 
-// Resident tạo Request
+// Resident tạo Request (nhận image_urls là mảng string URL đã upload trước)
 const createRequest = async (req, res) => {
     try {
         const requestData = { ...req.body };
@@ -45,16 +36,6 @@ const createRequest = async (req, res) => {
                 message: 'Missing required fields: room_id, resident_id, request_type, title'
             });
         }
-
-        // Upload ảnh đính kèm (ATTACHMENT)
-        let imageUrls = [];
-        if (req.files && req.files.length > 0) {
-            for (const file of req.files) {
-                const url = await uploadToCloudinary(file);
-                imageUrls.push(url);
-            }
-        }
-        requestData.imageUrls = imageUrls;
 
         const request = await requestService.createRequest(requestData);
 
@@ -72,7 +53,7 @@ const createRequest = async (req, res) => {
 const assignRequest = async (req, res) => {
     try {
         const { assigned_staff_id, manager_id } = req.body;
-        
+
         if (!assigned_staff_id) {
             return res.status(400).json({ success: false, message: 'Missing assigned_staff_id' });
         }
@@ -89,28 +70,18 @@ const assignRequest = async (req, res) => {
     }
 };
 
-// Staff hoặc Resident cập nhật trạng thái
+// Staff hoặc Resident cập nhật trạng thái (nhận completion_image_urls là mảng string URL)
 const updateRequestStatus = async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = { ...req.body };
 
         if (!updateData.status || !updateData.changed_by) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Missing required fields: status, changed_by' 
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required fields: status, changed_by'
             });
         }
-
-        // Upload ảnh báo cáo hoàn thành (COMPLETION) của Staff
-        let completionImages = [];
-        if (req.files && req.files.length > 0) {
-            for (const file of req.files) {
-                const url = await uploadToCloudinary(file);
-                completionImages.push(url);
-            }
-        }
-        updateData.completionImages = completionImages;
 
         const request = await requestService.updateRequestStatus(id, updateData);
 

@@ -33,7 +33,7 @@ class ServiceTypeService {
         total: count,
         page,
         limit,
-        totalPages: Math.ceil(count / limit),
+        total_pages: Math.ceil(count / limit),
       },
     };
   }

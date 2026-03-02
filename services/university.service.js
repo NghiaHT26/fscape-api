@@ -28,7 +28,7 @@ const getAllUniversities = async ({ page = 1, limit = 10, location_id, is_active
         total: count,
         page: Number(page),
         limit: Number(limit),
-        totalPages: Math.ceil(count / limit),
+        total_pages: Math.ceil(count / limit),
         data: rows
     };
 };

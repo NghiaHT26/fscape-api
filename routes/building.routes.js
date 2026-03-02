@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
 const buildingController = require('../controllers/building.controller');
+const authJwt = require('../middlewares/authJwt');
+const optionalAuthJwt = require('../middlewares/optionalAuthJwt');
+const requireRole = require('../middlewares/requireRole');
 
 /**
  * @swagger
@@ -10,7 +11,6 @@ const buildingController = require('../controllers/building.controller');
  *   - name: Buildings
  *     description: Quản lý toà nhà
  */
-
 
 /**
  * @swagger
@@ -46,29 +46,10 @@ const buildingController = require('../controllers/building.controller');
  *     responses:
  *       200:
  *         description: Thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 total:
- *                   type: integer
- *                 page:
- *                   type: integer
- *                 limit:
- *                   type: integer
- *                 totalPages:
- *                   type: integer
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Building'
  *       500:
  *         description: Lỗi server
  */
-router.get('/', buildingController.getAllBuildings);
+router.get('/', optionalAuthJwt, buildingController.getAllBuildings);
 
 /**
  * @swagger
@@ -87,31 +68,24 @@ router.get('/', buildingController.getAllBuildings);
  *     responses:
  *       200:
  *         description: Thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/BuildingDetail'
  *       404:
  *         description: Không tìm thấy
  */
-router.get('/:id', buildingController.getBuildingById);
+router.get('/:id', optionalAuthJwt, buildingController.getBuildingById);
 
 /**
  * @swagger
  * /api/buildings:
  *   post:
  *     operationId: createBuilding
- *     summary: Tạo toà nhà mới
+ *     summary: Tạo toà nhà mới (ADMIN only)
  *     tags: [Buildings]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             required:
@@ -138,47 +112,41 @@ router.get('/:id', buildingController.getBuildingById);
  *                 type: integer
  *               thumbnail_url:
  *                 type: string
- *                 format: binary
- *                 description: Chọn 1 ảnh làm ảnh đại diện
+ *                 description: URL ảnh đại diện (upload trước qua /api/upload)
  *               is_active:
  *                 type: boolean
  *                 default: true
- *               image_url:
+ *               images:
  *                 type: array
  *                 items:
  *                   type: string
- *                   format: binary
+ *                 description: Mảng URL ảnh (upload trước qua /api/upload)
  *               facilities:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: uuid
- *           encoding:
- *             facilities:
- *               style: form
- *               explode: true
  *     responses:
  *       201:
  *         description: Tạo thành công
  *       400:
  *         description: Dữ liệu không hợp lệ
+ *       401:
+ *         description: Chưa đăng nhập
+ *       403:
+ *         description: Không có quyền
  */
-router.post(
-    '/',
-    upload.fields([
-        { name: 'thumbnail_url', maxCount: 1 },
-        { name: 'image_url', maxCount: 10 }
-    ]),
-    buildingController.createBuilding
-);
+router.post('/', authJwt, requireRole('ADMIN'), buildingController.createBuilding);
 
 /**
  * @swagger
  * /api/buildings/{id}:
  *   put:
  *     operationId: updateBuilding
- *     summary: Cập nhật toà nhà
+ *     summary: Cập nhật toà nhà (ADMIN only)
  *     tags: [Buildings]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -189,7 +157,7 @@ router.post(
  *     requestBody:
  *       required: false
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
@@ -207,46 +175,36 @@ router.post(
  *                 type: integer
  *               thumbnail_url:
  *                 type: string
- *                 format: binary
- *                 description: Cập nhật ảnh đại diện
+ *                 description: URL ảnh đại diện mới
  *               is_active:
  *                 type: boolean
- *               image_url:
+ *               images:
  *                 type: array
  *                 items:
  *                   type: string
- *                   format: binary
+ *                 description: Mảng URL ảnh mới (thay thế toàn bộ ảnh cũ)
  *               facilities:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: uuid
- *           encoding:
- *             facilities:
- *               style: form
- *               explode: true
  *     responses:
  *       200:
  *         description: Cập nhật thành công
  *       404:
  *         description: Không tìm thấy
  */
-router.put(
-    '/:id',
-    upload.fields([
-        { name: 'thumbnail_url', maxCount: 1 },
-        { name: 'images_url', maxCount: 10 }
-    ]),
-    buildingController.updateBuilding
-);
+router.put('/:id', authJwt, requireRole('ADMIN'), buildingController.updateBuilding);
 
 /**
  * @swagger
  * /api/buildings/{id}:
  *   delete:
  *     operationId: deleteBuilding
- *     summary: Xoá toà nhà
+ *     summary: Xoá toà nhà (ADMIN only, check ràng buộc booking/contract)
  *     tags: [Buildings]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -259,17 +217,20 @@ router.put(
  *         description: Xoá thành công
  *       404:
  *         description: Không tìm thấy
+ *       409:
+ *         description: Còn booking/contract active
  */
-router.delete('/:id', buildingController.deleteBuilding);
-
+router.delete('/:id', authJwt, requireRole('ADMIN'), buildingController.deleteBuilding);
 
 /**
  * @swagger
  * /api/buildings/{id}/status:
  *   patch:
  *     operationId: toggleBuildingStatus
- *     summary: Toggle trạng thái hoạt động
+ *     summary: Toggle trạng thái hoạt động (ADMIN only, check ràng buộc khi deactivate)
  *     tags: [Buildings]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -282,7 +243,9 @@ router.delete('/:id', buildingController.deleteBuilding);
  *         description: Cập nhật thành công
  *       404:
  *         description: Không tìm thấy
+ *       409:
+ *         description: Còn booking/contract active
  */
-router.patch('/:id/status', buildingController.toggleBuildingStatus);
+router.patch('/:id/status', authJwt, requireRole('ADMIN'), buildingController.toggleBuildingStatus);
 
 module.exports = router;

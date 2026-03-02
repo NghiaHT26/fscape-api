@@ -11,10 +11,6 @@ const getProfileById = async (userId) => {
       'phone',
       'avatar_url',
       'building_id',
-      'is_active',
-      'last_login_at',
-      'created_at',
-      'updated_at'
     ]
   });
 

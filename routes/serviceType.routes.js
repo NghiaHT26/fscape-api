@@ -3,6 +3,8 @@ const router = express.Router();
 
 const controller = require('../controllers/serviceType.controller');
 const validate = require('../middlewares/validateResult');
+const authJwt = require('../middlewares/authJwt');
+const requireRole = require('../middlewares/requireRole');
 const { serviceTypeValidator } = require('../validators');
 
 /**
@@ -66,8 +68,10 @@ const { serviceTypeValidator } = require('../validators');
  * @swagger
  * /api/service-types:
  *   post:
- *     summary: Create service type
+ *     summary: Create service type (ADMIN only)
  *     tags: [ServiceTypes]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -82,6 +86,8 @@ const { serviceTypeValidator } = require('../validators');
  */
 router.post(
   '/',
+  authJwt,
+  requireRole('ADMIN'),
   serviceTypeValidator.create,
   validate,
   controller.createServiceType
@@ -128,8 +134,10 @@ router.get(
  * @swagger
  * /api/service-types/{id}:
  *   get:
- *     summary: Get service type by id
+ *     summary: Get service type by id (ADMIN only)
  *     tags: [ServiceTypes]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -143,14 +151,16 @@ router.get(
  *       404:
  *         description: Not found
  */
-router.get('/:id', controller.getServiceTypeById);
+router.get('/:id', authJwt, requireRole('ADMIN'), controller.getServiceTypeById);
 
 /**
  * @swagger
  * /api/service-types/{id}:
  *   put:
- *     summary: Update service type
+ *     summary: Update service type (ADMIN only)
  *     tags: [ServiceTypes]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -172,6 +182,8 @@ router.get('/:id', controller.getServiceTypeById);
  */
 router.put(
   '/:id',
+  authJwt,
+  requireRole('ADMIN'),
   serviceTypeValidator.update,
   validate,
   controller.updateServiceType
@@ -181,8 +193,10 @@ router.put(
  * @swagger
  * /api/service-types/{id}:
  *   delete:
- *     summary: Delete service type
+ *     summary: Delete service type (ADMIN only)
  *     tags: [ServiceTypes]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -196,6 +210,6 @@ router.put(
  *       404:
  *         description: Not found
  */
-router.delete('/:id', controller.deleteServiceType);
+router.delete('/:id', authJwt, requireRole('ADMIN'), controller.deleteServiceType);
 
 module.exports = router;

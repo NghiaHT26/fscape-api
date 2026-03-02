@@ -41,7 +41,7 @@ const getAllContracts = async ({ page = 1, limit = 10, status, building_id, sear
         total: count,
         page: Number(page),
         limit: Number(limit),
-        totalPages: Math.ceil(count / limit),
+        total_pages: Math.ceil(count / limit),
         data: rows
     };
 };

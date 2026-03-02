@@ -31,15 +31,7 @@ class InternalAuthService {
       throw new Error("Invalid authentication method");
     }
 
-    let match = false;
-
-    if (user.role === "ADMIN") {
-      // 👉 ADMIN: so sánh plain text
-      match = password === auth.password_hash;
-    } else {
-      // 👉 User thường: bcrypt
-      match = await bcrypt.compare(password, auth.password_hash);
-    }
+    const match = await bcrypt.compare(password, auth.password_hash);
     if (!match) {
       throw new Error("Invalid email or password");
     }
@@ -63,6 +55,7 @@ class InternalAuthService {
         role: user.role,
         first_name: user.first_name,
         last_name: user.last_name,
+        avatar_url: user.avatar_url,
       },
     };
   }
@@ -89,16 +82,7 @@ class InternalAuthService {
       throw new Error("Invalid authentication method");
     }
 
-    let match = false;
-
-    if (user.role === "ADMIN") {
-      // 👉 ADMIN: password cũ đang là plain text
-      match = oldPassword === auth.password_hash;
-    } else {
-      // 👉 User thường: bcrypt
-      match = await bcrypt.compare(oldPassword, auth.password_hash);
-    }
-
+    const match = await bcrypt.compare(oldPassword, auth.password_hash);
     if (!match) {
       throw new Error("Old password is incorrect");
     }

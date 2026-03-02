@@ -81,7 +81,7 @@ const getUserNotifications = async (userId, { page = 1, limit = 10, is_read } = 
         total: count,
         page: Number(page),
         limit: Number(limit),
-        totalPages: Math.ceil(count / limit),
+        total_pages: Math.ceil(count / limit),
         data: rows
     };
 };

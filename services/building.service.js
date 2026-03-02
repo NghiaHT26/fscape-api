@@ -8,8 +8,19 @@ const BuildingFacility = require('../models/buildingFacility.model');
 const University = require('../models/university.model');
 const Room = require('../models/room.model');
 const RoomType = require('../models/roomType.model');
+const Booking = require('../models/booking.model');
+const Contract = require('../models/contract.model');
+const { ACTIVE_BOOKING_STATUSES, ACTIVE_CONTRACT_STATUSES } = require('../constants/statuses');
+const { ROLES } = require('../constants/roles');
 
-const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_active } = {}) => {
+const INTERNAL_ROLES = [ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF];
+
+const PUBLIC_BUILDING_ATTRIBUTES = [
+    'id', 'location_id', 'name', 'address', 'latitude', 'longitude',
+    'description', 'total_floors', 'thumbnail_url', 'is_active'
+];
+
+const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_active } = {}, role = null) => {
     const offset = (page - 1) * limit;
     const where = {};
 
@@ -17,7 +28,7 @@ const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_a
     if (is_active !== undefined) where.is_active = is_active === 'true';
     if (search) where.name = { [Op.iLike]: `%${search}%` };
 
-    const { count, rows } = await Building.findAndCountAll({
+    const queryOptions = {
         where,
         include: [
             { model: Location, as: 'location', attributes: ['id', 'name'] },
@@ -28,26 +39,37 @@ const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_a
         offset: Number(offset),
         distinct: true,
         order: [['created_at', 'DESC']]
-    });
+    };
+
+    if (!INTERNAL_ROLES.includes(role)) {
+        queryOptions.attributes = PUBLIC_BUILDING_ATTRIBUTES;
+    }
+
+    const { count, rows } = await Building.findAndCountAll(queryOptions);
 
     return {
         total: count,
         page: Number(page),
         limit: Number(limit),
-        totalPages: Math.ceil(count / limit),
+        total_pages: Math.ceil(count / limit),
         data: rows
     };
 };
 
-const getBuildingById = async (id) => {
-    const building = await Building.findByPk(id, {
+const getBuildingById = async (id, role = null) => {
+    const queryOptions = {
         include: [
             { model: Location, as: 'location' },
             { model: BuildingImage, as: 'images' },
             { model: Facility, as: 'facilities' }
         ]
-    });
-    
+    };
+
+    if (!INTERNAL_ROLES.includes(role)) {
+        queryOptions.attributes = PUBLIC_BUILDING_ATTRIBUTES;
+    }
+
+    const building = await Building.findByPk(id, queryOptions);
     if (!building) throw { status: 404, message: 'Building not found' };
 
     const rooms = await Room.findAll({
@@ -56,14 +78,10 @@ const getBuildingById = async (id) => {
     });
 
     const uniqueRoomTypeIds = [...new Set(rooms.map(room => room.room_type_id))];
-
-    // 4. Query lấy thông tin chi tiết của các Room Types đó
     let roomTypes = [];
     if (uniqueRoomTypeIds.length > 0) {
         roomTypes = await RoomType.findAll({
-            where: {
-                id: uniqueRoomTypeIds
-            }
+            where: { id: uniqueRoomTypeIds }
         });
     }
 
@@ -82,7 +100,7 @@ const getBuildingById = async (id) => {
 
 const createBuilding = async (data) => {
     const { facilities, images, ...buildingData } = data;
-    
+
     const transaction = await sequelize.transaction();
 
     try {
@@ -115,13 +133,11 @@ const updateBuilding = async (id, data) => {
     try {
         await building.update(updateData, { transaction });
 
-        // Sync Images
         if (images) {
             await BuildingImage.destroy({ where: { building_id: id }, transaction });
             await BuildingImage.bulkCreate(images.map(url => ({ building_id: id, image_url: url })), { transaction });
         }
 
-        // Sync Facilities
         if (facilities) {
             await BuildingFacility.destroy({ where: { building_id: id }, transaction });
             await BuildingFacility.bulkCreate(facilities.map(fId => ({ building_id: id, facility_id: fId })), { transaction });
@@ -135,29 +151,90 @@ const updateBuilding = async (id, data) => {
     }
 };
 
+/**
+ * Kiểm tra building có thể deactivate/delete không.
+ * Throw 409 nếu còn booking active hoặc contract active.
+ */
+const assertBuildingCanBeRemovedOrDeactivated = async (buildingId) => {
+    const rooms = await Room.findAll({
+        where: { building_id: buildingId },
+        attributes: ['id'],
+        raw: true
+    });
+
+    if (rooms.length === 0) return;
+
+    const roomIds = rooms.map(r => r.id);
+
+    const activeBookingCount = await Booking.count({
+        where: {
+            room_id: { [Op.in]: roomIds },
+            status: { [Op.in]: ACTIVE_BOOKING_STATUSES }
+        }
+    });
+
+    if (activeBookingCount > 0) {
+        throw {
+            status: 409,
+            message: `Cannot proceed: ${activeBookingCount} active booking(s) exist for rooms in this building`
+        };
+    }
+
+    const activeContractCount = await Contract.count({
+        where: {
+            room_id: { [Op.in]: roomIds },
+            status: { [Op.in]: ACTIVE_CONTRACT_STATUSES }
+        }
+    });
+
+    if (activeContractCount > 0) {
+        throw {
+            status: 409,
+            message: `Cannot proceed: ${activeContractCount} active contract(s) exist for rooms in this building`
+        };
+    }
+};
+
 const deleteBuilding = async (id) => {
     const building = await Building.findByPk(id);
     if (!building) throw { status: 404, message: 'Building not found' };
-    
-    await building.destroy();
+
+    await assertBuildingCanBeRemovedOrDeactivated(id);
+
+    const transaction = await sequelize.transaction();
+    try {
+        await BuildingImage.destroy({ where: { building_id: id }, transaction });
+        await BuildingFacility.destroy({ where: { building_id: id }, transaction });
+        await building.destroy({ transaction });
+        await transaction.commit();
+    } catch (error) {
+        await transaction.rollback();
+        throw error;
+    }
+
     return { message: `Building "${building.name}" deleted successfully` };
 };
 
 const toggleBuildingStatus = async (id) => {
-    const building = await Building.findByPk(id)
-    if (!building) throw { status: 404, message: 'Building not found' }
+    const building = await Building.findByPk(id);
+    if (!building) throw { status: 404, message: 'Building not found' };
 
-    building.is_active = !building.is_active
-    await building.save()
+    // Chỉ check khi deactivating (true → false)
+    if (building.is_active) {
+        await assertBuildingCanBeRemovedOrDeactivated(id);
+    }
 
-    return building
-}
+    building.is_active = !building.is_active;
+    await building.save();
 
-module.exports = { 
-    getAllBuildings, 
-    getBuildingById, 
-    createBuilding, 
-    updateBuilding, 
-    deleteBuilding, 
-    toggleBuildingStatus 
+    return building;
+};
+
+module.exports = {
+    getAllBuildings,
+    getBuildingById,
+    createBuilding,
+    updateBuilding,
+    deleteBuilding,
+    toggleBuildingStatus
 };

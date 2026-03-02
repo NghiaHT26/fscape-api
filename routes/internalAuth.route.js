@@ -72,7 +72,7 @@ const authInternal = require('../middlewares/authInternal');
  *       400:
  *         description: Invalid email or password / Account inactive
  */
-router.post('/login', authInternal, controller.login);
+router.post('/login', controller.login);
 
 /**
  * @swagger
@@ -110,6 +110,6 @@ router.post('/login', authInternal, controller.login);
  *       404:
  *         description: User not found
  */
-router.post('/change-password', authInternal, authJwt, controller.changePassword);
+router.post('/change-password', authJwt, authInternal, controller.changePassword);
 
 module.exports = router;

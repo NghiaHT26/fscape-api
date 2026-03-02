@@ -1,6 +1,8 @@
 const express = require('express')
 const router = express.Router()
 const roomTypeController = require('../controllers/roomType.controller')
+const authJwt = require('../middlewares/authJwt')
+const requireRole = require('../middlewares/requireRole')
 
 /**
  * @swagger
@@ -76,8 +78,10 @@ router.get('/', roomTypeController.getAllRoomTypes)
  * /api/room-types/{id}:
  *   get:
  *     operationId: getRoomTypeById
- *     summary: Lấy chi tiết loại phòng theo ID
+ *     summary: Lấy chi tiết loại phòng theo ID (ADMIN, BUILDING_MANAGER)
  *     tags: [RoomTypes]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -105,15 +109,17 @@ router.get('/', roomTypeController.getAllRoomTypes)
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/:id', roomTypeController.getRoomTypeById)
+router.get('/:id', authJwt, requireRole('ADMIN', 'BUILDING_MANAGER'), roomTypeController.getRoomTypeById)
 
 /**
  * @swagger
  * /api/room-types:
  *   post:
  *     operationId: createRoomType
- *     summary: Tạo loại phòng mới (base_price >= 0, capacity_min <= capacity_max)
+ *     summary: Tạo loại phòng mới (ADMIN only)
  *     tags: [RoomTypes]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -185,15 +191,17 @@ router.get('/:id', roomTypeController.getRoomTypeById)
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/', roomTypeController.createRoomType)
+router.post('/', authJwt, requireRole('ADMIN'), roomTypeController.createRoomType)
 
 /**
  * @swagger
  * /api/room-types/{id}:
  *   put:
  *     operationId: updateRoomType
- *     summary: Cập nhật loại phòng (base_price >= 0, capacity_min <= capacity_max)
+ *     summary: Cập nhật loại phòng (ADMIN only)
  *     tags: [RoomTypes]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -257,15 +265,17 @@ router.post('/', roomTypeController.createRoomType)
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/:id', roomTypeController.updateRoomType)
+router.put('/:id', authJwt, requireRole('ADMIN'), roomTypeController.updateRoomType)
 
 /**
  * @swagger
  * /api/room-types/{id}:
  *   delete:
  *     operationId: deleteRoomType
- *     summary: Vô hiệu hoá loại phòng (soft delete - set is_active = false)
+ *     summary: Vô hiệu hoá loại phòng (ADMIN only)
  *     tags: [RoomTypes]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -293,6 +303,6 @@ router.put('/:id', roomTypeController.updateRoomType)
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete('/:id', roomTypeController.deleteRoomType)
+router.delete('/:id', authJwt, requireRole('ADMIN'), roomTypeController.deleteRoomType)
 
 module.exports = router

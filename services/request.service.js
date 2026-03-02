@@ -23,7 +23,7 @@ const generateRequestNumber = async () => {
     return `REQ-${dateStr}-${nextId}`;
 };
 
-const getAllRequests = async ({ page = 1, limit = 10, status, request_type, room_id, assigned_staff_id } = {}) => {
+const getAllRequests = async ({ page = 1, limit = 10, status, request_type, room_id, assigned_staff_id } = {}, user) => {
     const offset = (page - 1) * limit;
     const where = {};
 
@@ -32,10 +32,27 @@ const getAllRequests = async ({ page = 1, limit = 10, status, request_type, room
     if (room_id) where.room_id = room_id;
     if (assigned_staff_id) where.assigned_staff_id = assigned_staff_id;
 
+    // Phân quyền data theo role
+    const roomWhere = {};
+    switch (user.role) {
+        case 'BUILDING_MANAGER': {
+            const manager = await User.findByPk(user.id, { attributes: ['building_id'] });
+            if (manager?.building_id) roomWhere.building_id = manager.building_id;
+            break;
+        }
+        case 'STAFF':
+            where.assigned_staff_id = user.id;
+            break;
+        case 'RESIDENT':
+            where.resident_id = user.id;
+            break;
+        // ADMIN: không filter, thấy tất cả
+    }
+
     const { count, rows } = await Request.findAndCountAll({
         where,
         include: [
-            { model: Room, as: 'room', attributes: ['id', 'room_number'] },
+            { model: Room, as: 'room', attributes: ['id', 'room_number'], where: Object.keys(roomWhere).length ? roomWhere : undefined },
             { model: User, as: 'resident', attributes: ['id', 'first_name', 'last_name', 'email'] },
             { model: User, as: 'staff', attributes: ['id', 'first_name', 'last_name'] }
         ],
@@ -48,7 +65,7 @@ const getAllRequests = async ({ page = 1, limit = 10, status, request_type, room
         total: count,
         page: Number(page),
         limit: Number(limit),
-        totalPages: Math.ceil(count / limit),
+        total_pages: Math.ceil(count / limit),
         data: rows
     };
 };
@@ -75,7 +92,7 @@ const getRequestById = async (id) => {
 };
 
 const createRequest = async (data) => {
-    const { imageUrls, ...requestData } = data;
+    const { image_urls, ...requestData } = data;
     const transaction = await sequelize.transaction();
 
     try {
@@ -84,9 +101,9 @@ const createRequest = async (data) => {
 
         const request = await Request.create(requestData, { transaction });
 
-        // 1. Lưu ảnh (Resident upload lên làm bằng chứng)
-        if (imageUrls && imageUrls.length > 0) {
-            const imageRecords = imageUrls.map(url => ({
+        // Lưu URL ảnh (client đã upload trước qua /api/upload)
+        if (image_urls && image_urls.length > 0) {
+            const imageRecords = image_urls.map(url => ({
                 request_id: request.id,
                 image_url: url,
                 image_type: 'ATTACHMENT',
@@ -158,7 +175,7 @@ const assignRequest = async (id, staff_id, manager_id) => {
 };
 
 const updateRequestStatus = async (id, updateData) => {
-    const { status, changed_by, reason, completionImages, service_price, completion_note, feedback_rating, feedback_comment, report_reason } = updateData;
+    const { status, changed_by, reason, completion_image_urls, service_price, completion_note, feedback_rating, feedback_comment, report_reason } = updateData;
 
     const request = await Request.findByPk(id);
     if (!request) throw { status: 404, message: 'Request not found' };
@@ -187,9 +204,9 @@ const updateRequestStatus = async (id, updateData) => {
 
         await request.update(requestUpdatePayload, { transaction });
 
-        // Nếu Staff up ảnh hoàn thành công việc
-        if (completionImages && completionImages.length > 0) {
-            const imageRecords = completionImages.map(url => ({
+        // Lưu URL ảnh hoàn thành (client đã upload trước qua /api/upload)
+        if (completion_image_urls && completion_image_urls.length > 0) {
+            const imageRecords = completion_image_urls.map(url => ({
                 request_id: id,
                 image_url: url,
                 image_type: 'COMPLETION',

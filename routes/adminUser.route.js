@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const authJwt = require('../middlewares/authJwt');
-const requireAdmin = require('../middlewares/requireAdmin');
+const requireRole = require('../middlewares/requireRole');
 const controller = require('../controllers/adminUser.controller');
 
 /**
@@ -22,7 +22,7 @@ const controller = require('../controllers/adminUser.controller');
  *       bearerFormat: JWT
  */
 
-router.use(authJwt, requireAdmin);
+router.use(authJwt, requireRole('ADMIN'));
 
 /**
  * @swagger

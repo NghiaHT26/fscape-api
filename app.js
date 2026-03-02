@@ -27,4 +27,5 @@ app.use('/api/admin/users', require('./routes/adminUser.route'));
 app.use('/api/service-types', require('./routes/serviceType.routes')); //
 app.use('/api/auth', require('./routes/auth.route'));
 app.use('/api/user-profile', require('./routes/userProfile.route'));
+app.use('/api/upload', require('./routes/upload.routes'));
 module.exports = app

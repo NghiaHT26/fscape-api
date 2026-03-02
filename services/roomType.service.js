@@ -33,7 +33,7 @@ const getAllRoomTypes = async ({
         total: count,
         page: parsedPage,
         limit: parsedLimit,
-        totalPages: Math.ceil(count / parsedLimit),
+        total_pages: Math.ceil(count / parsedLimit),
         data: rows
     }
 }

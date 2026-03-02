@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const universityController = require('../controllers/university.controller');
+const authJwt = require('../middlewares/authJwt');
+const requireRole = require('../middlewares/requireRole');
 
 /**
  * @swagger
@@ -118,8 +120,10 @@ router.get('/:id', universityController.getUniversityById);
  * /api/universities:
  *   post:
  *     operationId: createUniversity
- *     summary: Tạo trường đại học mới
+ *     summary: Tạo trường đại học mới (ADMIN only)
  *     tags: [Universities]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -174,15 +178,17 @@ router.get('/:id', universityController.getUniversityById);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/', universityController.createUniversity);
+router.post('/', authJwt, requireRole('ADMIN'), universityController.createUniversity);
 
 /**
  * @swagger
  * /api/universities/{id}:
  *   put:
  *     operationId: updateUniversity
- *     summary: Cập nhật trường đại học
+ *     summary: Cập nhật trường đại học (ADMIN only)
  *     tags: [Universities]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -233,15 +239,17 @@ router.post('/', universityController.createUniversity);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/:id', universityController.updateUniversity);
+router.put('/:id', authJwt, requireRole('ADMIN'), universityController.updateUniversity);
 
 /**
  * @swagger
  * /api/universities/{id}:
  *   delete:
  *     operationId: deleteUniversity
- *     summary: Xoá trường đại học (hard delete)
+ *     summary: Xoá trường đại học (ADMIN only)
  *     tags: [Universities]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -269,15 +277,17 @@ router.put('/:id', universityController.updateUniversity);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete('/:id', universityController.deleteUniversity);
+router.delete('/:id', authJwt, requireRole('ADMIN'), universityController.deleteUniversity);
 
 /**
  * @swagger
  * /api/universities/{id}/status:
  *   patch:
  *     operationId: toggleUniversityStatus
- *     summary: Bật/Tắt trạng thái hoạt động của University (toggle is_active)
+ *     summary: Bật/Tắt trạng thái hoạt động của University (ADMIN only)
  *     tags: [Universities]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -307,6 +317,6 @@ router.delete('/:id', universityController.deleteUniversity);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.patch('/:id/status', universityController.toggleUniversityStatus);
+router.patch('/:id/status', authJwt, requireRole('ADMIN'), universityController.toggleUniversityStatus);
 
 module.exports = router;

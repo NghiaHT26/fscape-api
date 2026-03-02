@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
 const requestController = require('../controllers/request.controller');
+const authJwt = require('../middlewares/authJwt');
+const requireRole = require('../middlewares/requireRole');
 
 /**
  * @swagger
@@ -16,9 +16,11 @@ const requestController = require('../controllers/request.controller');
  * /api/requests:
  *   get:
  *     operationId: getAllRequests
- *     summary: Lấy danh sách Request (Phân quyền cho Manager & Staff)
+ *     summary: Lấy danh sách Request (phân quyền theo role)
  *     tags:
  *       - Requests
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: page
@@ -57,7 +59,7 @@ const requestController = require('../controllers/request.controller');
  *       500:
  *         description: Lỗi server
  */
-router.get('/', requestController.getAllRequests);
+router.get('/', authJwt, requireRole('ADMIN', 'BUILDING_MANAGER', 'STAFF', 'RESIDENT'), requestController.getAllRequests);
 
 /**
  * @swagger
@@ -67,6 +69,8 @@ router.get('/', requestController.getAllRequests);
  *     summary: Lấy chi tiết 1 Request (kèm lịch sử trạng thái & hình ảnh)
  *     tags:
  *       - Requests
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -80,20 +84,22 @@ router.get('/', requestController.getAllRequests);
  *       404:
  *         description: Không tìm thấy
  */
-router.get('/:id', requestController.getRequestById);
+router.get('/:id', authJwt, requireRole('ADMIN', 'BUILDING_MANAGER', 'STAFF', 'RESIDENT'), requestController.getRequestById);
 
 /**
  * @swagger
  * /api/requests:
  *   post:
  *     operationId: createRequest
- *     summary: Tạo Request mới (Thường do Resident tạo)
+ *     summary: Tạo Request mới (RESIDENT only)
  *     tags:
  *       - Requests
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             required:
@@ -122,19 +128,19 @@ router.get('/:id', requestController.getRequestById);
  *               custom_item_description:
  *                 type: string
  *                 description: Mô tả tài sản nếu không chọn từ danh sách Asset
- *               images:
+ *               image_urls:
  *                 type: array
  *                 items:
  *                   type: string
- *                   format: binary
- *                 description: Hình ảnh đính kèm (Tối đa 5 ảnh)
+ *                 description: Mảng URL ảnh đã upload qua /api/upload
  *     responses:
  *       201:
  *         description: Tạo Request thành công (status mặc định là PENDING)
  */
 router.post(
     '/',
-    upload.array('images', 5),
+    authJwt,
+    requireRole('RESIDENT'),
     requestController.createRequest
 );
 
@@ -143,9 +149,11 @@ router.post(
  * /api/requests/{id}/assign:
  *   patch:
  *     operationId: assignRequest
- *     summary: Manager giao Request cho Staff
+ *     summary: Manager giao Request cho Staff (ADMIN, BUILDING_MANAGER)
  *     tags:
  *       - Requests
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -157,7 +165,7 @@ router.post(
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             required:
@@ -182,16 +190,18 @@ router.post(
  *       500:
  *         description: Lỗi server
  */
-router.patch('/:id/assign', upload.none(), requestController.assignRequest);
+router.patch('/:id/assign', authJwt, requireRole('ADMIN', 'BUILDING_MANAGER'), requestController.assignRequest);
 
 /**
  * @swagger
  * /api/requests/{id}/status:
  *   patch:
  *     operationId: updateRequestStatus
- *     summary: Cập nhật tiến độ xử lý của Request (Staff / Resident)
+ *     summary: Cập nhật tiến độ xử lý của Request (BUILDING_MANAGER, STAFF, RESIDENT)
  *     tags:
  *       - Requests
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -202,7 +212,7 @@ router.patch('/:id/assign', upload.none(), requestController.assignRequest);
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             required:
@@ -240,19 +250,19 @@ router.patch('/:id/assign', upload.none(), requestController.assignRequest);
  *                 description: Resident vote sao (1-5) khi COMPLETED
  *               feedback_comment:
  *                 type: string
- *               images:
+ *               completion_image_urls:
  *                 type: array
  *                 items:
  *                   type: string
- *                   format: binary
- *                 description: Staff upload ảnh nghiệm thu (DONE)
+ *                 description: Mảng URL ảnh nghiệm thu đã upload qua /api/upload
  *     responses:
  *       200:
  *         description: Cập nhật trạng thái thành công
  */
 router.patch(
   '/:id/status',
-  upload.array('images', 5),
+  authJwt,
+  requireRole('BUILDING_MANAGER', 'STAFF', 'RESIDENT'),
   requestController.updateRequestStatus
 );
 

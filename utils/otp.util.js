@@ -12,7 +12,7 @@ exports.generateOtp = async (email, type) => {
     where: {
       email,
       type,
-      createdAt: { [Op.gte]: today }
+      created_at: { [Op.gte]: today }
     }
   });
 

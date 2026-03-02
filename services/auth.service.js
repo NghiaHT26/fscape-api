@@ -72,9 +72,17 @@ class AuthService {
 
   await auth.User.update({ last_login_at: new Date() });
 
+  const user = auth.User;
   return {
-    access_token: generateAccessToken(auth.User),
-    user: auth.User, //return user data
+    access_token: generateAccessToken(user),
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      avatar_url: user.avatar_url,
+    },
   };
 }
 

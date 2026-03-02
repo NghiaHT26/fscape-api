@@ -30,7 +30,7 @@ const getAllRooms = async ({ page = 1, limit = 10, building_id, room_type_id, st
         total: count,
         page: Number(page),
         limit: Number(limit),
-        totalPages: Math.ceil(count / limit),
+        total_pages: Math.ceil(count / limit),
         data: rows
     };
 };
