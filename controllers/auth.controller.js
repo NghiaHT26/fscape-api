@@ -47,3 +47,24 @@ exports.resetPassword = async (req, res) => {
     res.status(400).json({ message: e.message });
   }
 };
+
+// Google sign-in (two-step)
+exports.googleLogin = async (req, res) => {
+  try {
+    const { id_token } = req.body;
+    const result = await AuthService.googleSignInStep1(id_token);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+};
+
+exports.googleVerify = async (req, res) => {
+  try {
+    const { id_token, otp } = req.body;
+    const result = await AuthService.googleSignInStep2(id_token, otp);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+};

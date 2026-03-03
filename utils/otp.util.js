@@ -48,3 +48,6 @@ exports.verifyOtp = async (email, code, type) => {
 
   return true;
 };
+
+// re-export types so consumers can refer to constants rather than hardcoding strings
+exports.OTP_TYPES = OTP_TYPES;
