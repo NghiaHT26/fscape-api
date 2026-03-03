@@ -27,8 +27,8 @@ const Room = sequelize.define('Room', {
   image_3d_url: DataTypes.TEXT,
   blueprint_url: DataTypes.TEXT,
   status: {
-    type: DataTypes.ENUM('AVAILABLE', 'OCCUPIED', 'LOCKED'),
-    defaultValue: 'AVAILABLE'
+    type: DataTypes.STRING(50),
+    defaultValue: 'AVAILABLE' // AVAILABLE, OCCUPIED, LOCKED
   }
 }, {
   tableName: 'rooms',

@@ -1,6 +1,5 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-const User = require('./user.model');
 
 const CustomerProfile = sequelize.define('CustomerProfile', {
   id: {
@@ -22,7 +21,7 @@ const CustomerProfile = sequelize.define('CustomerProfile', {
     allowNull: true
   },
   gender: {
-    type: DataTypes.ENUM('MALE', 'FEMALE', 'OTHER'),
+    type: DataTypes.STRING(20), // MALE, FEMALE, OTHER
     allowNull: true
   },
   permanent_address: {
@@ -43,7 +42,8 @@ const CustomerProfile = sequelize.define('CustomerProfile', {
   underscored: true
 });
 
-User.hasOne(CustomerProfile, { foreignKey: 'user_id', as: 'profile' });
-CustomerProfile.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+CustomerProfile.associate = (models) => {
+  CustomerProfile.belongsTo(models.User, { foreignKey: 'user_id', as: 'user' });
+};
 
 module.exports = CustomerProfile;

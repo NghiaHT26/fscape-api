@@ -1,9 +1,5 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-const Location = require('./location.model');
-const BuildingImage = require('./buildingImage.model');
-const Facility = require('./facility.model');
-const BuildingFacility = require('./buildingFacility.model');
 
 const Building = sequelize.define('Building', {
   id: {
@@ -14,9 +10,9 @@ const Building = sequelize.define('Building', {
   location_id: {
     type: DataTypes.UUID,
     allowNull: false,
-    references: { 
+    references: {
       model: 'locations',
-      key: 'id' 
+      key: 'id'
     }
   },
   name: {
@@ -54,21 +50,28 @@ const Building = sequelize.define('Building', {
   underscored: true
 });
 
-Building.belongsTo(Location, {
-  foreignKey: 'location_id',
-  as: 'location'
-});
+Building.associate = (models) => {
+  Building.belongsTo(models.Location, {
+    foreignKey: 'location_id',
+    as: 'location'
+  });
 
-Building.hasMany(BuildingImage, {
-  foreignKey: 'building_id',
-  as: 'images'
-});
+  Building.hasMany(models.BuildingImage, {
+    foreignKey: 'building_id',
+    as: 'images'
+  });
 
-Building.belongsToMany(Facility, {
-  through: BuildingFacility,
-  foreignKey: 'building_id',
-  otherKey: 'facility_id',
-  as: 'facilities'
-});
+  Building.belongsToMany(models.Facility, {
+    through: models.BuildingFacility,
+    foreignKey: 'building_id',
+    otherKey: 'facility_id',
+    as: 'facilities'
+  });
+
+  Building.hasMany(models.Room, {
+    foreignKey: 'building_id',
+    as: 'rooms'
+  });
+};
 
 module.exports = Building;

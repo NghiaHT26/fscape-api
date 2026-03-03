@@ -1,6 +1,5 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-const User = require('./user.model');
 
 const AuditLog = sequelize.define('AuditLog', {
   id: {
@@ -18,18 +17,8 @@ const AuditLog = sequelize.define('AuditLog', {
     allowNull: true
   },
   action: {
-    type: DataTypes.ENUM(
-      'CREATE',
-      'UPDATE',
-      'DELETE',
-      'LOGIN',
-      'LOGOUT',
-      'SIGN',
-      'APPROVE',
-      'REJECT',
-      'ASSIGN'
-    ),
-    allowNull: false
+    type: DataTypes.STRING(50),
+    allowNull: false // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, SIGN, APPROVE, REJECT, ASSIGN
   },
   entity_type: {
     type: DataTypes.STRING(100), // Tên bảng chịu tác động
@@ -62,7 +51,8 @@ const AuditLog = sequelize.define('AuditLog', {
   underscored: true
 });
 
-/* Relation */
-AuditLog.belongsTo(User, { foreignKey: 'user_id', as: 'performer' });
+AuditLog.associate = (models) => {
+  AuditLog.belongsTo(models.User, { foreignKey: 'user_id', as: 'performer' });
+};
 
 module.exports = AuditLog;

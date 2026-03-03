@@ -25,8 +25,8 @@ const Request = sequelize.define('Request', {
         allowNull: true
     },
     request_type: {
-        type: DataTypes.ENUM('REPAIR', 'CLEANING', 'COMPLAINT', 'ASSET_CHANGE', 'CHECKOUT', 'OTHER'),
-        allowNull: false
+        type: DataTypes.STRING(50),
+        allowNull: false // REPAIR, CLEANING, COMPLAINT, ASSET_CHANGE, CHECKOUT, OTHER
     },
     title: {
         type: DataTypes.STRING(255),
@@ -36,20 +36,20 @@ const Request = sequelize.define('Request', {
         type: DataTypes.TEXT
     },
     status: {
-        type: DataTypes.ENUM('PENDING', 'ASSIGNED', 'PRICE_PROPOSED', 'APPROVED', 'IN_PROGRESS', 'DONE', 'COMPLETED', 'REVIEWED', 'REFUNDED', 'CANCELLED'),
-        defaultValue: 'PENDING'
+        type: DataTypes.STRING(50),
+        defaultValue: 'PENDING' // PENDING, ASSIGNED, PRICE_PROPOSED, APPROVED, IN_PROGRESS, DONE, COMPLETED, REVIEWED, REFUNDED, CANCELLED
     },
     related_asset_id: {
         type: DataTypes.UUID,
         allowNull: true
-    }, 
+    },
     custom_item_description: {
         type: DataTypes.TEXT,
         allowNull: true
     },
     service_price: {
         type: DataTypes.DECIMAL(15, 2)
-    }, 
+    },
     completion_note: {
         type: DataTypes.TEXT
     },
@@ -58,7 +58,7 @@ const Request = sequelize.define('Request', {
     },
     feedback_rating: {
         type: DataTypes.SMALLINT
-    }, 
+    },
     feedback_comment: {
         type: DataTypes.TEXT
     },
@@ -67,7 +67,7 @@ const Request = sequelize.define('Request', {
     },
     report_reason: {
         type: DataTypes.TEXT
-    }, 
+    },
     reported_at: {
         type: DataTypes.DATE
     },
@@ -95,7 +95,7 @@ Request.associate = (models) => {
     Request.belongsTo(models.User, { foreignKey: 'assigned_staff_id', as: 'staff' });
     Request.belongsTo(models.Asset, { foreignKey: 'related_asset_id', as: 'asset' });
     Request.belongsTo(models.User, { foreignKey: 'refund_approved_by', as: 'refund_approver' });
-    
+
     Request.hasMany(models.RequestImage, { foreignKey: 'request_id', as: 'images', onDelete: 'CASCADE' });
     Request.hasMany(models.RequestStatusHistory, { foreignKey: 'request_id', as: 'status_history', onDelete: 'CASCADE' });
 };
