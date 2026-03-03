@@ -41,6 +41,20 @@ router.post("/create-booking-vnpay", authJwt, paymentController.createBookingPay
 
 /**
  * @swagger
+ * /api/payments/my:
+ *   get:
+ *     summary: Lấy lịch sử thanh toán của khách hàng hiện tại
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Thành công
+ */
+router.get("/my", authJwt, paymentController.getMyPayments);
+
+/**
+ * @swagger
  * /api/payments/vnpay-ipn:
  *   get:
  *     summary: Endpoint nhận kết quả từ VNPay (IPN)

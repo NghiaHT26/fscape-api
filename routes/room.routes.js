@@ -3,6 +3,8 @@ const router = express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const roomController = require('../controllers/room.controller');
+const authJwt = require('../middlewares/authJwt');
+const requireAdmin = require('../middlewares/requireAdmin');
 /**
  * @swagger
  * tags:
@@ -155,6 +157,8 @@ router.get('/:id', roomController.getRoomById);
  */
 router.post(
   '/',
+  authJwt,
+  requireAdmin,
   upload.fields([
     { name: 'thumbnail', maxCount: 1 },
     { name: 'image_3d', maxCount: 1 },
@@ -223,6 +227,8 @@ router.post(
  */
 router.put(
   '/:id',
+  authJwt,
+  requireAdmin,
   upload.fields([
     { name: 'thumbnail', maxCount: 1 },
     { name: 'image_3d', maxCount: 1 },
@@ -253,6 +259,6 @@ router.put(
  *       404:
  *         description: Không tìm thấy phòng
  */
-router.delete('/:id', roomController.deleteRoom);
+router.delete('/:id', authJwt, requireAdmin, roomController.deleteRoom);
 
 module.exports = router;

@@ -37,10 +37,10 @@ const createContract = async (req, res) => {
         }
 
         const contract = await contractService.createContract(req.body);
-        return res.status(201).json({ 
-            success: true, 
-            message: 'Contract created as DRAFT', 
-            data: contract 
+        return res.status(201).json({
+            success: true,
+            message: 'Contract created as DRAFT',
+            data: contract
         });
     } catch (err) { return handleError(res, err); }
 };
@@ -52,10 +52,10 @@ const updateContract = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Body is empty' });
         }
         const contract = await contractService.updateContract(req.params.id, req.body);
-        return res.status(200).json({ 
-            success: true, 
-            message: 'Contract updated successfully', 
-            data: contract 
+        return res.status(200).json({
+            success: true,
+            message: 'Contract updated successfully',
+            data: contract
         });
     } catch (err) { return handleError(res, err); }
 };
@@ -72,22 +72,32 @@ const deleteContract = async (req, res) => {
 const approveContract = async (req, res) => {
     try {
         // ID Admin thực hiện duyệt lấy từ middleware auth
-        const manager_id = req.user.id; 
+        const manager_id = req.user.id;
         const contract = await contractService.updateContractStatus(req.params.id, 'ACTIVE', manager_id);
-        
-        return res.status(200).json({ 
-            success: true, 
-            message: 'Contract approved and room status updated to OCCUPIED', 
-            data: contract 
+
+        return res.status(200).json({
+            success: true,
+            message: 'Contract approved and room status updated to OCCUPIED',
+            data: contract
         });
     } catch (err) { return handleError(res, err); }
 };
 
-module.exports = { 
-    getAllContracts, 
-    getContractById, 
-    createContract, 
-    updateContract, 
-    deleteContract, 
-    approveContract 
+// [GET] /api/contracts/my
+const getMyContracts = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const contracts = await contractService.getMyContracts(userId);
+        return res.status(200).json({ success: true, data: contracts });
+    } catch (err) { return handleError(res, err); }
+};
+
+module.exports = {
+    getAllContracts,
+    getContractById,
+    getMyContracts,
+    createContract,
+    updateContract,
+    deleteContract,
+    approveContract
 };
