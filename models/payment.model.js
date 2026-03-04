@@ -1,5 +1,8 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const User = require('./user.model');
+const Invoice = require('./invoice.model');
+const Contract = require('./contract.model');
 
 const Payment = sequelize.define('Payment', {
   id: {
@@ -21,21 +24,16 @@ const Payment = sequelize.define('Payment', {
   contract_id: {
     type: DataTypes.UUID,
     allowNull: true
-  }, // Dành cho thanh toán hợp đồng
+  }, // Dành cho thanh toán cọc
 
-  booking_id: {
-    type: DataTypes.UUID,
-    allowNull: true
-  }, // Dành cho thanh toán đặt cọc
-
-  user_id: {
-    type: DataTypes.UUID,
-    allowNull: false
+  user_id: { 
+    type: DataTypes.UUID, 
+    allowNull: false 
   },
 
-  amount: {
-    type: DataTypes.DECIMAL(15, 2),
-    allowNull: false
+  amount: { 
+    type: DataTypes.DECIMAL(15, 2), 
+    allowNull: false 
   },
 
   payment_type: {
@@ -44,20 +42,20 @@ const Payment = sequelize.define('Payment', {
   },
 
   status: {
-    type: DataTypes.STRING(50),
-    defaultValue: 'PENDING' // PENDING, PROCESSING, SUCCESS, FAILED, CANCELLED, REFUNDED
+    type: DataTypes.ENUM('PENDING', 'PROCESSING', 'SUCCESS', 'FAILED', 'CANCELLED', 'REFUNDED'),
+    defaultValue: 'PENDING'
   },
 
-  gateway_transaction_id: {
-    type: DataTypes.STRING(255)
+  gateway_transaction_id: { 
+    type: DataTypes.STRING(255) 
   },
 
-  gateway_response: {
-    type: DataTypes.JSONB
+  gateway_response: { 
+    type: DataTypes.JSONB 
   },
 
-  paid_at: {
-    type: DataTypes.DATE
+  paid_at: { 
+    type: DataTypes.DATE 
   }
 }, {
   tableName: 'payments',
@@ -66,11 +64,9 @@ const Payment = sequelize.define('Payment', {
   indexes: [{ unique: true, fields: ['payment_number'] }, { fields: ['status'] }]
 });
 
-Payment.associate = (models) => {
-  Payment.belongsTo(models.User, { foreignKey: 'user_id', as: 'payer' });
-  Payment.belongsTo(models.Invoice, { foreignKey: 'invoice_id', as: 'invoice' });
-  Payment.belongsTo(models.Contract, { foreignKey: 'contract_id', as: 'contract' });
-  Payment.belongsTo(models.Booking, { foreignKey: 'booking_id', as: 'booking' });
-};
+/* Relations */
+Payment.belongsTo(User, { foreignKey: 'user_id', as: 'payer' });
+Payment.belongsTo(Invoice, { foreignKey: 'invoice_id', as: 'invoice' });
+Payment.belongsTo(Contract, { foreignKey: 'contract_id', as: 'contract' });
 
 module.exports = Payment;

@@ -1,5 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const Notification = require('./notification.model');
+const User = require('./user.model');
 
 const NotificationRecipient = sequelize.define('NotificationRecipient', {
   id: {
@@ -35,9 +37,10 @@ const NotificationRecipient = sequelize.define('NotificationRecipient', {
   ]
 });
 
-NotificationRecipient.associate = (models) => {
-  NotificationRecipient.belongsTo(models.Notification, { foreignKey: 'notification_id' });
-  NotificationRecipient.belongsTo(models.User, { foreignKey: 'user_id' });
-};
+/* ===== RELATIONS ===== */
+Notification.hasMany(NotificationRecipient, { foreignKey: 'notification_id', as: 'recipients', onDelete: 'CASCADE' });
+NotificationRecipient.belongsTo(Notification, { foreignKey: 'notification_id' });
+User.hasMany(NotificationRecipient, { foreignKey: 'user_id', as: 'user_notifications' });
+NotificationRecipient.belongsTo(User, { foreignKey: 'user_id' });
 
 module.exports = NotificationRecipient;

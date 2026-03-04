@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const User = require('./user.model');
 
 const Notification = sequelize.define('Notification', {
   id: {
@@ -7,9 +8,17 @@ const Notification = sequelize.define('Notification', {
     primaryKey: true,
     defaultValue: DataTypes.UUIDV4
   },
-  type: {
-    type: DataTypes.STRING(50),
-    allowNull: false // CONTRACT_PENDING, INVOICE_GENERATED, MAINTENANCE_REQUEST, REQUEST_ASSIGNED, REQUEST_STATUS_CHANGED, REQUEST_REPORTED, GENERAL_ANNOUNCEMENT
+type: {
+    type: DataTypes.ENUM(
+      'CONTRACT_PENDING', 
+      'INVOICE_GENERATED', 
+      'MAINTENANCE_REQUEST', 
+      'REQUEST_ASSIGNED',        // Thêm mới
+      'REQUEST_STATUS_CHANGED',  // Thêm mới
+      'REQUEST_REPORTED',        // Thêm mới
+      'GENERAL_ANNOUNCEMENT'
+    ),
+    allowNull: false
   },
   title: {
     type: DataTypes.STRING(255),
@@ -19,17 +28,17 @@ const Notification = sequelize.define('Notification', {
     type: DataTypes.TEXT,
     allowNull: false
   },
-  target_type: {
-    type: DataTypes.STRING(20),
-    allowNull: false // USER, ROOM, BUILDING, ALL
+  target_type: { 
+    type: DataTypes.ENUM('USER', 'ROOM', 'BUILDING', 'ALL'), 
+    allowNull: false 
   },
   target_id: {
     type: DataTypes.UUID,
     allowNull: true
   },
   reference_type: {
-    type: DataTypes.STRING(20),
-    allowNull: true // CONTRACT, INVOICE, REQUEST
+    type: DataTypes.ENUM('CONTRACT', 'INVOICE', 'REQUEST'),
+    allowNull: true
   },
   reference_id: {
     type: DataTypes.UUID,
@@ -46,12 +55,5 @@ const Notification = sequelize.define('Notification', {
   updatedAt: false,
   underscored: true
 });
-
-Notification.associate = (models) => {
-  Notification.belongsTo(models.User, { foreignKey: 'created_by', as: 'creator' });
-
-  // NotificationRecipient relation
-  Notification.hasMany(models.NotificationRecipient, { foreignKey: 'notification_id', as: 'recipients', onDelete: 'CASCADE' });
-};
 
 module.exports = Notification;

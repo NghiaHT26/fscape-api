@@ -26,8 +26,8 @@ const OtpCode = sequelize.define(
     },
 
     type: {
-      type: DataTypes.STRING(50),
-      allowNull: false, // EMAIL_VERIFICATION, PASSWORD_RESET
+      type: DataTypes.ENUM('EMAIL_VERIFICATION', 'PASSWORD_RESET'),
+      allowNull: false,
     },
 
     is_used: {

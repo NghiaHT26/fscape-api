@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const Contract = require('./contract.model');
 
 const Invoice = sequelize.define('Invoice', {
   id: {
@@ -60,8 +61,8 @@ const Invoice = sequelize.define('Invoice', {
   },
 
   status: {
-    type: DataTypes.STRING(50),
-    defaultValue: 'UNPAID' // UNPAID, PAID, OVERDUE, CANCELLED
+    type: DataTypes.ENUM('UNPAID', 'PAID', 'OVERDUE', 'CANCELLED'),
+    defaultValue: 'UNPAID'
   },
 
   due_date: {
@@ -82,9 +83,8 @@ const Invoice = sequelize.define('Invoice', {
   indexes: [{ unique: true, fields: ['invoice_number'] }, { fields: ['status'] }]
 });
 
-Invoice.associate = (models) => {
-  Invoice.belongsTo(models.Contract, { foreignKey: 'contract_id', as: 'contract' });
-  Invoice.hasMany(models.Payment, { foreignKey: 'invoice_id', as: 'payments' });
-};
+/* Relations */
+Invoice.belongsTo(Contract, { foreignKey: 'contract_id', as: 'contract' });
+Contract.hasMany(Invoice, { foreignKey: 'contract_id', as: 'invoices' });
 
 module.exports = Invoice;

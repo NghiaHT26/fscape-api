@@ -16,8 +16,8 @@ const RequestImage = sequelize.define('RequestImage', {
     allowNull: false
   },
   image_type: {
-    type: DataTypes.STRING(50),
-    defaultValue: 'ATTACHMENT', // ATTACHMENT, COMPLETION
+    type: DataTypes.ENUM('ATTACHMENT', 'COMPLETION'),
+    defaultValue: 'ATTACHMENT',
     allowNull: false
   },
   uploaded_by: {

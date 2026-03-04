@@ -1,5 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const Asset = require('./asset.model');
+const User = require('./user.model');
 
 const AssetHistory = sequelize.define('AssetHistory', {
   id: {
@@ -21,20 +23,21 @@ const AssetHistory = sequelize.define('AssetHistory', {
     allowNull: true
   },
   from_status: {
-    type: DataTypes.STRING(50),
-    allowNull: false // AVAILABLE, IN_USE, MAINTENANCE
+    type: DataTypes.ENUM('AVAILABLE', 'IN_USE', 'MAINTENANCE'),
+    allowNull: false
   },
   to_status: {
-    type: DataTypes.STRING(50),
-    allowNull: false // AVAILABLE, IN_USE, MAINTENANCE
+    type: DataTypes.ENUM('AVAILABLE', 'IN_USE', 'MAINTENANCE'),
+    allowNull: false
   },
-  action: {
-    type: DataTypes.STRING(100),
-    allowNull: false // INITIAL_CREATE, UPDATE_INFO, CHECK_IN, CHECK_OUT, MAINTENANCE_START, MAINTENANCE_END
+  action: { 
+    type: DataTypes.ENUM('INITIAL_CREATE', 'UPDATE_INFO', 'CHECK_IN', 'CHECK_OUT', 'MAINTENANCE_START', 'MAINTENANCE_END'),
+    allowNull: false
   },
   performed_by: {
     type: DataTypes.UUID,
-    allowNull: true // ID của Staff thực hiện quét mã
+    allowNull: true, // ID của Staff thực hiện quét mã
+    references: { model: 'users', key: 'id' }
   },
   notes: {
     type: DataTypes.TEXT
@@ -46,9 +49,9 @@ const AssetHistory = sequelize.define('AssetHistory', {
   underscored: true
 });
 
-AssetHistory.associate = (models) => {
-  AssetHistory.belongsTo(models.Asset, { foreignKey: 'asset_id', as: 'asset' });
-  AssetHistory.belongsTo(models.User, { foreignKey: 'performed_by', as: 'performer' });
-};
+/* Relations */
+Asset.hasMany(AssetHistory, { foreignKey: 'asset_id', as: 'histories', onDelete: 'CASCADE' });
+AssetHistory.belongsTo(Asset, { foreignKey: 'asset_id' });
+AssetHistory.belongsTo(User, { foreignKey: 'performed_by', as: 'performer' });
 
 module.exports = AssetHistory;

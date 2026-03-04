@@ -12,12 +12,12 @@ const RequestStatusHistory = sequelize.define('RequestStatusHistory', {
     allowNull: false
   },
   from_status: {
-    type: DataTypes.STRING(50),
-    allowNull: true // PENDING, ASSIGNED, PRICE_PROPOSED, APPROVED, IN_PROGRESS, DONE, COMPLETED, REVIEWED, REFUNDED, CANCELLED
+    type: DataTypes.ENUM('PENDING', 'ASSIGNED', 'PRICE_PROPOSED', 'APPROVED', 'IN_PROGRESS', 'DONE', 'COMPLETED', 'REVIEWED', 'REFUNDED', 'CANCELLED'),
+    allowNull: true
   },
   to_status: {
-    type: DataTypes.STRING(50),
-    allowNull: false // PENDING, ASSIGNED, PRICE_PROPOSED, APPROVED, IN_PROGRESS, DONE, COMPLETED, REVIEWED, REFUNDED, CANCELLED
+    type: DataTypes.ENUM('PENDING', 'ASSIGNED', 'PRICE_PROPOSED', 'APPROVED', 'IN_PROGRESS', 'DONE', 'COMPLETED', 'REVIEWED', 'REFUNDED', 'CANCELLED'),
+    allowNull: false
   },
   changed_by: {
     type: DataTypes.UUID,

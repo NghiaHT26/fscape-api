@@ -1,5 +1,9 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const Room = require('./room.model');
+const User = require('./user.model');
+const Contract = require('./contract.model');
+const Payment = require('./payment.model');
 
 const Booking = sequelize.define('Booking', {
   id: {
@@ -24,9 +28,9 @@ const Booking = sequelize.define('Booking', {
     type: DataTypes.DATEONLY,
     allowNull: false
   },
-  status: {
-    type: DataTypes.STRING(50),
-    defaultValue: 'PENDING' // PENDING, DEPOSIT_PAID, CONVERTED, CANCELLED
+  status: { 
+    type: DataTypes.ENUM('PENDING', 'DEPOSIT_PAID', 'CONVERTED', 'CANCELLED'), 
+    defaultValue: 'PENDING' 
   },
   room_price_snapshot: {
     type: DataTypes.DECIMAL(15, 2),
@@ -74,11 +78,10 @@ const Booking = sequelize.define('Booking', {
   underscored: true
 });
 
-Booking.associate = (models) => {
-  Booking.belongsTo(models.Room, { foreignKey: 'room_id', as: 'room' });
-  Booking.belongsTo(models.User, { foreignKey: 'customer_id', as: 'customer' });
-  Booking.belongsTo(models.Contract, { foreignKey: 'contract_id', as: 'contract' });
-  Booking.belongsTo(models.Payment, { foreignKey: 'deposit_payment_id', as: 'payment' });
-};
+/* ===== RELATIONS ===== */
+Booking.belongsTo(Room, { foreignKey: 'room_id', as: 'room' });
+Booking.belongsTo(User, { foreignKey: 'customer_id', as: 'customer' });
+Booking.belongsTo(Contract, { foreignKey: 'contract_id', as: 'contract' });
+Booking.belongsTo(Payment, { foreignKey: 'deposit_payment_id', as: 'payment' });
 
 module.exports = Booking;

@@ -1,6 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-const PROVIDER_TYPE = ['EMAIL', 'GOOGLE'];
+const User = require('./user.model');
+const PROVIDER_TYPE = ['EMAIL', 'GOOGLE']; 
 
 const AuthProvider = sequelize.define(
   "AuthProvider",
@@ -21,7 +22,7 @@ const AuthProvider = sequelize.define(
     },
 
     provider: {
-      type: DataTypes.STRING(50), // EMAIL, GOOGLE
+      type: DataTypes.ENUM('EMAIL', 'GOOGLE'),
       allowNull: false,
     },
 
@@ -46,7 +47,7 @@ const AuthProvider = sequelize.define(
     timestamps: true,
   }
 );
-AuthProvider.associate = (models) => {
-  AuthProvider.belongsTo(models.User, { foreignKey: 'user_id' });
-};
+AuthProvider.belongsTo(User, {
+  foreignKey: 'user_id',
+});
 module.exports = { AuthProvider, PROVIDER_TYPE };

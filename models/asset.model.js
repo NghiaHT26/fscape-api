@@ -25,8 +25,8 @@ const Asset = sequelize.define('Asset', {
     allowNull: true
   },
   status: {
-    type: DataTypes.STRING(50),
-    defaultValue: 'AVAILABLE' // AVAILABLE, IN_USE, MAINTENANCE
+    type: DataTypes.ENUM('AVAILABLE', 'IN_USE', 'MAINTENANCE'),
+    defaultValue: 'AVAILABLE'
   },
   current_room_id: {
     type: DataTypes.UUID,
