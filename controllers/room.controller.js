@@ -8,9 +8,10 @@ const handleError = (res, err) => {
     return res.status(status).json({ success: false, message });
 };
 
+// GET /api/rooms
 const getAllRooms = async (req, res) => {
     try {
-        const result = await roomService.getAllRooms(req.query);
+        const result = await roomService.getAllRooms(req.query, req.user);
         return res.status(200).json({ success: true, ...result });
     } catch (err) {
         return handleError(res, err);
@@ -19,7 +20,7 @@ const getAllRooms = async (req, res) => {
 
 const getRoomById = async (req, res) => {
     try {
-        const room = await roomService.getRoomById(req.params.id);
+        const room = await roomService.getRoomById(req.params.id, req.user);
         return res.status(200).json({ success: true, data: room });
     } catch (err) {
         return handleError(res, err);
@@ -58,7 +59,7 @@ const createRoom = async (req, res) => {
             if (req.files['blueprint'] && req.files['blueprint'].length > 0) {
                 roomData.blueprint_url = await uploadToCloudinary(req.files['blueprint'][0]);
             }
-            
+
             // Xử lý danh sách ảnh gallery
             if (req.files['gallery_images'] && req.files['gallery_images'].length > 0) {
                 roomData.gallery_images = [];
@@ -96,7 +97,7 @@ const updateRoom = async (req, res) => {
             if (req.files['blueprint'] && req.files['blueprint'].length > 0) {
                 updateData.blueprint_url = await uploadToCloudinary(req.files['blueprint'][0]);
             }
-            
+
             if (req.files['gallery_images'] && req.files['gallery_images'].length > 0) {
                 updateData.gallery_images = [];
                 for (const file of req.files['gallery_images']) {
@@ -121,17 +122,40 @@ const updateRoom = async (req, res) => {
 
 const deleteRoom = async (req, res) => {
     try {
-        const result = await roomService.deleteRoom(req.params.id);
+        const result = await roomService.deleteRoom(req.params.id, req.user);
         return res.status(200).json({ success: true, ...result });
     } catch (err) {
         return handleError(res, err);
     }
 };
 
+const updateRoomStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const validStatuses = ['AVAILABLE', 'OCCUPIED', 'LOCKED'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ success: false, message: `status must be one of: ${validStatuses.join(', ')}` });
+        }
+
+        const room = await roomService.updateRoomStatus(id, status, req.user);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Room status updated successfully',
+            data: room
+        });
+    } catch (err) {
+        return handleError(res, err);
+    }
+}
+
 module.exports = {
     getAllRooms,
     getRoomById,
     createRoom,
     updateRoom,
-    deleteRoom
+    deleteRoom,
+    updateRoomStatus
 };

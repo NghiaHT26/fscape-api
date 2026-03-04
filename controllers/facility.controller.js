@@ -8,18 +8,20 @@ const handleError = (res, err) => {
     return res.status(status).json({ success: false, message });
 };
 
+// GET /api/facilities
 const getAllFacilities = async (req, res) => {
     try {
-        const result = await facilityService.getAllFacilities(req.query);
+        const result = await facilityService.getAllFacilities(req.query, req.user);
         return res.status(200).json({ success: true, ...result });
     } catch (err) {
         return handleError(res, err);
     }
 };
 
+// GET /api/facilities/:id
 const getFacilityById = async (req, res) => {
     try {
-        const facility = await facilityService.getFacilityById(req.params.id);
+        const facility = await facilityService.getFacilityById(req.params.id, req.user);
         return res.status(200).json({ success: true, data: facility });
     } catch (err) {
         return handleError(res, err);
@@ -86,10 +88,32 @@ const deleteFacility = async (req, res) => {
     }
 };
 
+const updateFacilityStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { is_active } = req.body;
+
+        if (typeof is_active !== 'boolean') {
+            return res.status(400).json({ success: false, message: `is_active must be a boolean` });
+        }
+
+        const facility = await facilityService.updateFacilityStatus(id, is_active, req.user);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Facility status updated successfully',
+            data: facility
+        });
+    } catch (err) {
+        return handleError(res, err);
+    }
+}
+
 module.exports = {
     getAllFacilities,
     getFacilityById,
     createFacility,
     updateFacility,
-    deleteFacility
+    deleteFacility,
+    updateFacilityStatus
 };

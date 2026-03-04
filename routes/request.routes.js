@@ -3,12 +3,14 @@ const router = express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const requestController = require('../controllers/request.controller');
+const authJwt = require('../middlewares/authJwt');
+const requireRoles = require('../middlewares/requireRoles');
+const { ROLES } = require('../constants/roles');
 
 /**
  * @swagger
  * tags:
  *   - name: Requests
- *     description: Quản lý Yêu cầu (Bảo trì, Dọn dẹp, Checkout...)
  */
 
 /**
@@ -17,6 +19,11 @@ const requestController = require('../controllers/request.controller');
  *   get:
  *     operationId: getAllRequests
  *     summary: Lấy danh sách Request (Phân quyền cho Manager & Staff)
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER, STAFF, RESIDENT, CUSTOMER]
+ *       Dữ liệu trả về sẽ được lọc tự động dựa trên quyền hạn của người dùng (Ví dụ: Resident chỉ thấy dữ liệu của mình, Manager thấy dữ liệu trong tòa nhà).
+ *     security:
+ *       - bearerAuth: []
  *     tags:
  *       - Requests
  *     parameters:
@@ -52,12 +59,19 @@ const requestController = require('../controllers/request.controller');
  *           format: uuid
  *         description: Dùng cho Staff lọc task của chính mình
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Thành công
  *       500:
  *         description: Lỗi server
  */
-router.get('/', requestController.getAllRequests);
+router.get(
+  '/',
+  authJwt,
+  requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT, ROLES.CUSTOMER),
+  requestController.getAllRequests
+);
 
 /**
  * @swagger
@@ -65,6 +79,11 @@ router.get('/', requestController.getAllRequests);
  *   get:
  *     operationId: getRequestById
  *     summary: Lấy chi tiết 1 Request (kèm lịch sử trạng thái & hình ảnh)
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER, STAFF, RESIDENT, CUSTOMER]
+ *       Dữ liệu trả về sẽ được lọc tự động dựa trên quyền hạn của người dùng (Ví dụ: Resident chỉ thấy dữ liệu của mình, Manager thấy dữ liệu trong tòa nhà).
+ *     security:
+ *       - bearerAuth: []
  *     tags:
  *       - Requests
  *     parameters:
@@ -75,12 +94,19 @@ router.get('/', requestController.getAllRequests);
  *           type: string
  *           format: uuid
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Thành công
  *       404:
  *         description: Không tìm thấy
  */
-router.get('/:id', requestController.getRequestById);
+router.get(
+  '/:id',
+  authJwt,
+  requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT, ROLES.CUSTOMER),
+  requestController.getRequestById
+);
 
 /**
  * @swagger
@@ -88,6 +114,10 @@ router.get('/:id', requestController.getRequestById);
  *   post:
  *     operationId: createRequest
  *     summary: Tạo Request mới (Thường do Resident tạo)
+ *     description: >
+ *       Required Roles: [RESIDENT, CUSTOMER]
+ *     security:
+ *       - bearerAuth: []
  *     tags:
  *       - Requests
  *     requestBody:
@@ -129,13 +159,17 @@ router.get('/:id', requestController.getRequestById);
  *                   format: binary
  *                 description: Hình ảnh đính kèm (Tối đa 5 ảnh)
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       201:
  *         description: Tạo Request thành công (status mặc định là PENDING)
  */
 router.post(
-    '/',
-    upload.array('images', 5),
-    requestController.createRequest
+  '/',
+  authJwt,
+  requireRoles(ROLES.RESIDENT, ROLES.CUSTOMER),
+  upload.array('images', 5),
+  requestController.createRequest
 );
 
 /**
@@ -144,6 +178,10 @@ router.post(
  *   patch:
  *     operationId: assignRequest
  *     summary: Manager giao Request cho Staff
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER]
+ *     security:
+ *       - bearerAuth: []
  *     tags:
  *       - Requests
  *     parameters:
@@ -173,6 +211,8 @@ router.post(
  *                 format: uuid
  *                 description: ID của Nhân viên kỹ thuật (Staff)
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Đã giao việc thành công (status chuyển sang ASSIGNED)
  *       400:
@@ -182,7 +222,13 @@ router.post(
  *       500:
  *         description: Lỗi server
  */
-router.patch('/:id/assign', upload.none(), requestController.assignRequest);
+router.patch(
+  '/:id/assign',
+  authJwt,
+  requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+  upload.none(),
+  requestController.assignRequest
+);
 
 /**
  * @swagger
@@ -190,6 +236,11 @@ router.patch('/:id/assign', upload.none(), requestController.assignRequest);
  *   patch:
  *     operationId: updateRequestStatus
  *     summary: Cập nhật tiến độ xử lý của Request (Staff / Resident)
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER, STAFF, RESIDENT]
+ *       Tác vụ: Staff cập nhật tiến độ, Resident nghiệm thu/đánh giá
+ *     security:
+ *       - bearerAuth: []
  *     tags:
  *       - Requests
  *     parameters:
@@ -247,11 +298,15 @@ router.patch('/:id/assign', upload.none(), requestController.assignRequest);
  *                   format: binary
  *                 description: Staff upload ảnh nghiệm thu (DONE)
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Cập nhật trạng thái thành công
  */
 router.patch(
   '/:id/status',
+  authJwt,
+  requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT),
   upload.array('images', 5),
   requestController.updateRequestStatus
 );

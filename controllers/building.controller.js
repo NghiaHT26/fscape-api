@@ -11,7 +11,7 @@ const handleError = (res, err) => {
 // GET /api/buildings
 const getAllBuildings = async (req, res) => {
     try {
-        const result = await buildingService.getAllBuildings(req.query);
+        const result = await buildingService.getAllBuildings(req.query, req.user);
         return res.status(200).json({ success: true, ...result });
     } catch (err) {
         return handleError(res, err);
@@ -21,7 +21,7 @@ const getAllBuildings = async (req, res) => {
 // GET /api/buildings/:id
 const getBuildingById = async (req, res) => {
     try {
-        const building = await buildingService.getBuildingById(req.params.id);
+        const building = await buildingService.getBuildingById(req.params.id, req.user);
         return res.status(200).json({ success: true, data: building });
     } catch (err) {
         return handleError(res, err);
@@ -40,7 +40,7 @@ const createBuilding = async (req, res) => {
             description,
             total_floors,
             is_active,
-            facilities 
+            facilities
         } = req.body;
 
         if (!location_id || !name || !address || latitude === undefined || longitude === undefined) {
@@ -118,7 +118,7 @@ const createBuilding = async (req, res) => {
 const updateBuilding = async (req, res) => {
     try {
         const updateData = { ...req.body };
-        
+
         // 1. Xử lý ảnh thumbnail mới
         if (req.files && req.files['thumbnail_url'] && req.files['thumbnail_url'].length > 0) {
             const file = req.files['thumbnail_url'][0];

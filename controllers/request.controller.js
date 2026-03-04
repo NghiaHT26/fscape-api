@@ -18,7 +18,7 @@ const uploadToCloudinary = async (file) => {
 
 const getAllRequests = async (req, res) => {
     try {
-        const result = await requestService.getAllRequests(req.query);
+        const result = await requestService.getAllRequests(req.query, req.user);
         return res.status(200).json({ success: true, ...result });
     } catch (err) {
         return handleError(res, err);
@@ -27,7 +27,7 @@ const getAllRequests = async (req, res) => {
 
 const getRequestById = async (req, res) => {
     try {
-        const request = await requestService.getRequestById(req.params.id);
+        const request = await requestService.getRequestById(req.params.id, req.user);
         return res.status(200).json({ success: true, data: request });
     } catch (err) {
         return handleError(res, err);
@@ -39,11 +39,18 @@ const createRequest = async (req, res) => {
     try {
         const requestData = { ...req.body };
 
-        if (!requestData.room_id || !requestData.resident_id || !requestData.request_type || !requestData.title) {
+        if (!requestData.room_id || !requestData.request_type || !requestData.title) {
             return res.status(400).json({
                 success: false,
-                message: 'Missing required fields: room_id, resident_id, request_type, title'
+                message: 'Missing required fields: room_id, request_type, title'
             });
+        }
+
+        // Ensure resident_id matches the user if they are a Resident
+        if (req.user && req.user.role === 'RESIDENT') {
+            requestData.resident_id = req.user.id;
+        } else if (!requestData.resident_id) {
+            return res.status(400).json({ success: false, message: 'Missing resident_id' });
         }
 
         // Upload ảnh đính kèm (ATTACHMENT)
@@ -72,12 +79,13 @@ const createRequest = async (req, res) => {
 const assignRequest = async (req, res) => {
     try {
         const { assigned_staff_id, manager_id } = req.body;
-        
+
         if (!assigned_staff_id) {
             return res.status(400).json({ success: false, message: 'Missing assigned_staff_id' });
         }
 
-        const request = await requestService.assignRequest(req.params.id, assigned_staff_id, manager_id);
+        const managerId = manager_id || req.user.id;
+        const request = await requestService.assignRequest(req.params.id, assigned_staff_id, managerId);
 
         return res.status(200).json({
             success: true,
@@ -95,10 +103,13 @@ const updateRequestStatus = async (req, res) => {
         const { id } = req.params;
         const updateData = { ...req.body };
 
-        if (!updateData.status || !updateData.changed_by) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Missing required fields: status, changed_by' 
+        const changedBy = updateData.changed_by || req.user.id;
+        updateData.changed_by = changedBy;
+
+        if (!updateData.status) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required fields: status'
             });
         }
 
@@ -112,7 +123,7 @@ const updateRequestStatus = async (req, res) => {
         }
         updateData.completionImages = completionImages;
 
-        const request = await requestService.updateRequestStatus(id, updateData);
+        const request = await requestService.updateRequestStatus(id, updateData, req.user);
 
         return res.status(200).json({
             success: true,

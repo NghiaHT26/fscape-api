@@ -3,11 +3,13 @@ const router = express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const roomController = require('../controllers/room.controller');
+const authJwt = require('../middlewares/authJwt');
+const requireRoles = require('../middlewares/requireRoles');
+const { ROLES } = require('../constants/roles');
 /**
  * @swagger
  * tags:
  *   - name: Rooms
- *     description: Quản lý phòng (thuộc Building)
  */
 
 /**
@@ -16,6 +18,11 @@ const roomController = require('../controllers/room.controller');
  *   get:
  *     operationId: getAllRooms
  *     summary: Lấy danh sách phòng (phân trang + lọc)
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER, STAFF, RESIDENT, CUSTOMER]
+ *       Dữ liệu trả về sẽ được lọc tự động dựa trên quyền hạn của người dùng (Ví dụ: Resident chỉ thấy dữ liệu của mình, Manager thấy dữ liệu trong tòa nhà).
+ *     security:
+ *       - bearerAuth: []
  *     tags:
  *       - Rooms
  *     parameters:
@@ -60,12 +67,19 @@ const roomController = require('../controllers/room.controller');
  *           type: string
  *         description: Tìm theo room_number (iLike)
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Lấy danh sách phòng thành công
  *       500:
  *         description: Lỗi server
  */
-router.get('/', roomController.getAllRooms);
+router.get(
+  '/',
+  authJwt,
+  requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT, ROLES.CUSTOMER),
+  roomController.getAllRooms
+);
 
 /**
  * @swagger
@@ -73,6 +87,11 @@ router.get('/', roomController.getAllRooms);
  *   get:
  *     operationId: getRoomById
  *     summary: Lấy thông tin phòng theo ID
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER, STAFF, RESIDENT, CUSTOMER]
+ *       Dữ liệu trả về sẽ được lọc tự động dựa trên quyền hạn của người dùng (Ví dụ: Resident chỉ thấy dữ liệu của mình, Manager thấy dữ liệu trong tòa nhà).
+ *     security:
+ *       - bearerAuth: []
  *     tags:
  *       - Rooms
  *     parameters:
@@ -84,12 +103,19 @@ router.get('/', roomController.getAllRooms);
  *           format: uuid
  *         description: ID của phòng
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Lấy phòng thành công
  *       404:
  *         description: Không tìm thấy phòng
  */
-router.get('/:id', roomController.getRoomById);
+router.get(
+  '/:id',
+  authJwt,
+  requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT, ROLES.CUSTOMER),
+  roomController.getRoomById
+);
 
 /**
  * @swagger
@@ -97,6 +123,10 @@ router.get('/:id', roomController.getRoomById);
  *   post:
  *     operationId: createRoom
  *     summary: Tạo phòng mới (hỗ trợ upload nhiều loại ảnh)
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER]
+ *     security:
+ *       - bearerAuth: []
  *     tags:
  *       - Rooms
  *     requestBody:
@@ -146,6 +176,8 @@ router.get('/:id', roomController.getRoomById);
  *                   format: binary
  *                 description: Danh sách ảnh thực tế (tối đa 10)
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       201:
  *         description: Tạo phòng thành công
  *       400:
@@ -155,6 +187,8 @@ router.get('/:id', roomController.getRoomById);
  */
 router.post(
   '/',
+  authJwt,
+  requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
   upload.fields([
     { name: 'thumbnail', maxCount: 1 },
     { name: 'image_3d', maxCount: 1 },
@@ -170,6 +204,10 @@ router.post(
  *   put:
  *     operationId: updateRoom
  *     summary: Cập nhật phòng
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER]
+ *     security:
+ *       - bearerAuth: []
  *     tags:
  *       - Rooms
  *     parameters:
@@ -216,6 +254,8 @@ router.post(
  *                   format: binary
  *                 description: Gửi danh sách ảnh mới (ghi đè)
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Cập nhật thành công
  *       404:
@@ -223,6 +263,8 @@ router.post(
  */
 router.put(
   '/:id',
+  authJwt,
+  requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
   upload.fields([
     { name: 'thumbnail', maxCount: 1 },
     { name: 'image_3d', maxCount: 1 },
@@ -238,6 +280,10 @@ router.put(
  *   delete:
  *     operationId: deleteRoom
  *     summary: Xoá phòng (hard delete)
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER]
+ *     security:
+ *       - bearerAuth: []
  *     tags:
  *       - Rooms
  *     parameters:
@@ -248,11 +294,64 @@ router.put(
  *           type: string
  *           format: uuid
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Xoá thành công
  *       404:
  *         description: Không tìm thấy phòng
  */
-router.delete('/:id', roomController.deleteRoom);
+router.delete(
+  '/:id',
+  authJwt,
+  requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+  roomController.deleteRoom
+);
+
+/**
+ * @swagger
+ * /api/rooms/{id}/status:
+ *   patch:
+ *     operationId: updateRoomStatus
+ *     summary: Cập nhật trạng thái phòng (status)
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER]
+ *     security:
+ *       - bearerAuth: []
+ *     tags:
+ *       - Rooms
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [AVAILABLE, OCCUPIED, LOCKED]
+ *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
+ *       200:
+ *         description: Trạng thái được cập nhật thành công
+ *       400:
+ *         description: Trạng thái không hợp lệ
+ */
+router.patch(
+  '/:id/status',
+  authJwt,
+  requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+  roomController.updateRoomStatus
+);
 
 module.exports = router;

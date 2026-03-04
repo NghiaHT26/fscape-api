@@ -1,13 +1,19 @@
 const { Op } = require('sequelize')
 const Facility = require('../models/facility.model')
 const Building = require('../models/building.model')
+const { ROLES } = require('../constants/roles')
 
-const getAllFacilities = async ({ page = 1, limit = 10, search, is_active, building_id } = {}) => {
+const getAllFacilities = async ({ page = 1, limit = 10, search, is_active, building_id } = {}, user) => {
     const offset = (page - 1) * limit
     const where = {}
 
     if (search) where.name = { [Op.iLike]: `%${search}%` }
-    if (is_active !== undefined) where.is_active = is_active === 'true' || is_active === true
+
+    if (user && user.role === ROLES.ADMIN) {
+        if (is_active !== undefined) where.is_active = is_active === 'true' || is_active === true
+    } else {
+        where.is_active = true
+    }
 
     const include = []
     if (building_id) {
@@ -38,8 +44,14 @@ const getAllFacilities = async ({ page = 1, limit = 10, search, is_active, build
     }
 }
 
-const getFacilityById = async (id) => {
-    const facility = await Facility.findByPk(id, {
+const getFacilityById = async (id, user) => {
+    const where = { id }
+    if (user && user.role !== ROLES.ADMIN) {
+        where.is_active = true
+    }
+
+    const facility = await Facility.findOne({
+        where,
         include: [{
             model: Building,
             as: 'buildings',
@@ -92,10 +104,20 @@ const deleteFacility = async (id) => {
     return { message: `Facility "${facility.name}" deleted successfully` }
 }
 
+const updateFacilityStatus = async (id, is_active, user) => {
+    const facility = await Facility.findByPk(id)
+    if (!facility) throw { status: 404, message: 'Facility not found' }
+
+    facility.is_active = is_active
+    await facility.save()
+    return facility
+}
+
 module.exports = {
     getAllFacilities,
     getFacilityById,
     createFacility,
     updateFacility,
-    deleteFacility
+    deleteFacility,
+    updateFacilityStatus
 }

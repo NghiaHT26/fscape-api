@@ -7,6 +7,7 @@ const notificationService = require('./notification.service');
 const Room = require('../models/room.model');
 const User = require('../models/user.model');
 const Asset = require('../models/asset.model');
+const { ROLES } = require('../constants/roles');
 
 // Helper sinh mã Request tự động (VD: REQ-20260302-001)
 const generateRequestNumber = async () => {
@@ -23,7 +24,7 @@ const generateRequestNumber = async () => {
     return `REQ-${dateStr}-${nextId}`;
 };
 
-const getAllRequests = async ({ page = 1, limit = 10, status, request_type, room_id, assigned_staff_id } = {}) => {
+const getAllRequests = async ({ page = 1, limit = 10, status, request_type, room_id, assigned_staff_id } = {}, user) => {
     const offset = (page - 1) * limit;
     const where = {};
 
@@ -32,10 +33,21 @@ const getAllRequests = async ({ page = 1, limit = 10, status, request_type, room
     if (room_id) where.room_id = room_id;
     if (assigned_staff_id) where.assigned_staff_id = assigned_staff_id;
 
+    // Apply Role-based scoping
+    const roomInclude = { model: Room, as: 'room', attributes: ['id', 'room_number'] };
+
+    if (user && Object.values(ROLES).includes(user.role)) {
+        if (user.role === ROLES.RESIDENT || user.role === ROLES.CUSTOMER) {
+            where.resident_id = user.id;
+        } else if (user.role === ROLES.BUILDING_MANAGER || user.role === ROLES.STAFF) {
+            roomInclude.where = { building_id: user.building_id };
+        } // ADMIN sees all
+    }
+
     const { count, rows } = await Request.findAndCountAll({
         where,
         include: [
-            { model: Room, as: 'room', attributes: ['id', 'room_number'] },
+            roomInclude,
             { model: User, as: 'resident', attributes: ['id', 'first_name', 'last_name', 'email'] },
             { model: User, as: 'staff', attributes: ['id', 'first_name', 'last_name'] }
         ],
@@ -53,10 +65,23 @@ const getAllRequests = async ({ page = 1, limit = 10, status, request_type, room
     };
 };
 
-const getRequestById = async (id) => {
-    const request = await Request.findByPk(id, {
+const getRequestById = async (id, user) => {
+    const where = { id };
+
+    const roomInclude = { model: Room, as: 'room', attributes: ['id', 'room_number', 'floor'] };
+
+    if (user) {
+        if (user.role === ROLES.RESIDENT || user.role === ROLES.CUSTOMER) {
+            where.resident_id = user.id;
+        } else if (user.role === ROLES.BUILDING_MANAGER || user.role === ROLES.STAFF) {
+            roomInclude.where = { building_id: user.building_id };
+        }
+    }
+
+    const request = await Request.findOne({
+        where,
         include: [
-            { model: Room, as: 'room', attributes: ['id', 'room_number', 'floor'] },
+            roomInclude,
             { model: User, as: 'resident', attributes: ['id', 'first_name', 'last_name', 'phone', 'email'] },
             { model: User, as: 'staff', attributes: ['id', 'first_name', 'last_name', 'phone'] },
             { model: Asset, as: 'asset', attributes: ['id', 'name', 'qr_code'] },
@@ -70,7 +95,7 @@ const getRequestById = async (id) => {
         ]
     });
 
-    if (!request) throw { status: 404, message: 'Request not found' };
+    if (!request) throw { status: 404, message: 'Request not found or access denied' };
     return request;
 };
 
@@ -157,11 +182,18 @@ const assignRequest = async (id, staff_id, manager_id) => {
     }
 };
 
-const updateRequestStatus = async (id, updateData) => {
+const updateRequestStatus = async (id, updateData, user) => {
     const { status, changed_by, reason, completionImages, service_price, completion_note, feedback_rating, feedback_comment, report_reason } = updateData;
 
     const request = await Request.findByPk(id);
     if (!request) throw { status: 404, message: 'Request not found' };
+
+    // Validations for role-specific updates
+    if (status === 'CANCELLED') {
+        if (!user || (user.role !== ROLES.ADMIN && user.role !== ROLES.BUILDING_MANAGER)) {
+            throw { status: 403, message: 'Only ADMIN and BUILDING_MANAGER can cancel requests' };
+        }
+    }
 
     const transaction = await sequelize.transaction();
     try {

@@ -3,12 +3,14 @@ const router = express.Router()
 const multer = require('multer')
 const upload = multer({ storage: multer.memoryStorage() })
 const facilityController = require('../controllers/facility.controller')
+const authJwt = require('../middlewares/authJwt')
+const requireRoles = require('../middlewares/requireRoles')
+const { ROLES } = require('../constants/roles')
 
 /**
  * @swagger
  * tags:
  *   - name: Facilities
- *     description: Danh mục tiện ích hệ thống (Gym, Cinema, Pool...)
  */
 
 /**
@@ -17,6 +19,11 @@ const facilityController = require('../controllers/facility.controller')
  *   get:
  *     operationId: getAllFacilities
  *     summary: Lấy danh sách tiện ích (phân trang + lọc)
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER, STAFF, RESIDENT, CUSTOMER]
+ *       Dữ liệu trả về sẽ được lọc tự động dựa trên quyền hạn của người dùng (Ví dụ: Resident chỉ thấy dữ liệu của mình, Manager thấy dữ liệu trong tòa nhà).
+ *     security:
+ *       - bearerAuth: []
  *     tags: [Facilities]
  *     parameters:
  *       - in: query
@@ -48,6 +55,8 @@ const facilityController = require('../controllers/facility.controller')
  *           format: uuid
  *         description: Lọc chỉ các facility thuộc building này (join qua building_facilities)
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Lấy danh sách tiện ích thành công
  *         content:
@@ -77,7 +86,12 @@ const facilityController = require('../controllers/facility.controller')
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/', facilityController.getAllFacilities)
+router.get(
+  '/',
+  authJwt,
+  requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT, ROLES.CUSTOMER),
+  facilityController.getAllFacilities
+)
 
 /**
  * @swagger
@@ -85,6 +99,11 @@ router.get('/', facilityController.getAllFacilities)
  *   get:
  *     operationId: getFacilityById
  *     summary: Lấy chi tiết tiện ích theo ID (kèm danh sách buildings đang sử dụng)
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER, STAFF, RESIDENT, CUSTOMER]
+ *       Dữ liệu trả về sẽ được lọc tự động dựa trên quyền hạn của người dùng (Ví dụ: Resident chỉ thấy dữ liệu của mình, Manager thấy dữ liệu trong tòa nhà).
+ *     security:
+ *       - bearerAuth: []
  *     tags: [Facilities]
  *     parameters:
  *       - in: path
@@ -94,6 +113,8 @@ router.get('/', facilityController.getAllFacilities)
  *           type: string
  *           format: uuid
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Thành công
  *         content:
@@ -113,13 +134,22 @@ router.get('/', facilityController.getAllFacilities)
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/:id', facilityController.getFacilityById)
+router.get(
+  '/:id',
+  authJwt,
+  requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT, ROLES.CUSTOMER),
+  facilityController.getFacilityById
+)
 
 /**
  * @swagger
  * /api/facilities:
  *   post:
  *     summary: Tạo tiện ích mới (có upload ảnh)
+ *     description: >
+ *       Required Roles: [ADMIN]
+ *     security:
+ *       - bearerAuth: []
  *     tags: [Facilities]
  *     requestBody:
  *       required: true
@@ -144,6 +174,8 @@ router.get('/:id', facilityController.getFacilityById)
  *                 type: boolean
  *                 example: true
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       201:
  *         description: Tạo thành công
  *       400:
@@ -153,6 +185,8 @@ router.get('/:id', facilityController.getFacilityById)
  */
 router.post(
   '/',
+  authJwt,
+  requireRoles(ROLES.ADMIN),
   upload.single('image_url'),
   facilityController.createFacility
 )
@@ -162,6 +196,10 @@ router.post(
  * /api/facilities/{id}:
  *   put:
  *     summary: Cập nhật tiện ích (có thể upload lại ảnh)
+ *     description: >
+ *       Required Roles: [ADMIN]
+ *     security:
+ *       - bearerAuth: []
  *     tags: [Facilities]
  *     parameters:
  *       - in: path
@@ -187,6 +225,8 @@ router.post(
  *               is_active:
  *                 type: boolean
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Cập nhật thành công
  *       404:
@@ -194,6 +234,8 @@ router.post(
  */
 router.put(
   '/:id',
+  authJwt,
+  requireRoles(ROLES.ADMIN),
   upload.single('image_url'),
   facilityController.updateFacility
 )
@@ -203,6 +245,10 @@ router.put(
  * /api/facilities/{id}:
  *   delete:
  *     summary: Xoá tiện ích
+ *     description: >
+ *       Required Roles: [ADMIN]
+ *     security:
+ *       - bearerAuth: []
  *     tags: [Facilities]
  *     parameters:
  *       - in: path
@@ -212,11 +258,61 @@ router.put(
  *           type: string
  *           format: uuid
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Xoá thành công
  *       404:
  *         description: Không tìm thấy
  */
-router.delete('/:id', facilityController.deleteFacility)
+router.delete(
+  '/:id',
+  authJwt,
+  requireRoles(ROLES.ADMIN),
+  facilityController.deleteFacility
+)
+
+/**
+ * @swagger
+ * /api/facilities/{id}/status:
+ *   patch:
+ *     summary: Cập nhật trạng thái tiện ích
+ *     description: >
+ *       Required Roles: [ADMIN]
+ *     security:
+ *       - bearerAuth: []
+ *     tags: [Facilities]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - is_active
+ *             properties:
+ *               is_active:
+ *                 type: boolean
+ *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
+ *       200:
+ *         description: Trạng thái cập nhật thành công
+ *       404:
+ *         description: Không tìm thấy
+ */
+router.patch(
+  '/:id/status',
+  authJwt,
+  requireRoles(ROLES.ADMIN),
+  facilityController.updateFacilityStatus
+)
 
 module.exports = router

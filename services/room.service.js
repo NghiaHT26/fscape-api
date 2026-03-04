@@ -4,14 +4,29 @@ const Room = require('../models/room.model');
 const RoomImage = require('../models/roomImage.model');
 const Building = require('../models/building.model');
 const RoomType = require('../models/roomType.model');
+const { ROLES } = require('../constants/roles');
 
-const getAllRooms = async ({ page = 1, limit = 10, building_id, room_type_id, status, floor, search } = {}) => {
+const getAllRooms = async ({ page = 1, limit = 10, building_id, room_type_id, status, floor, search } = {}, user) => {
     const offset = (page - 1) * limit;
     const where = {};
 
     if (building_id) where.building_id = building_id;
     if (room_type_id) where.room_type_id = room_type_id;
-    if (status) where.status = status;
+
+    if (user && Object.values(ROLES).includes(user.role)) {
+        if (user.role === ROLES.ADMIN) {
+            if (status) where.status = status;
+        } else if ([ROLES.BUILDING_MANAGER, ROLES.STAFF].includes(user.role)) {
+            where.building_id = user.building_id;
+            if (status) where.status = status;
+        } else {
+            // Residents/Customers only see available rooms
+            where.status = 'AVAILABLE';
+        }
+    } else {
+        if (status) where.status = status;
+    }
+
     if (floor !== undefined) where.floor = floor;
     if (search) where.room_number = { [Op.iLike]: `%${search}%` };
 
@@ -35,8 +50,17 @@ const getAllRooms = async ({ page = 1, limit = 10, building_id, room_type_id, st
     };
 };
 
-const getRoomById = async (id) => {
-    const room = await Room.findByPk(id, {
+const getRoomById = async (id, user) => {
+    const where = { id };
+
+    if (user && [ROLES.BUILDING_MANAGER, ROLES.STAFF].includes(user.role)) {
+        where.building_id = user.building_id;
+    } else if (user && [ROLES.RESIDENT, ROLES.CUSTOMER].includes(user.role)) {
+        where.status = 'AVAILABLE';
+    }
+
+    const room = await Room.findOne({
+        where,
         include: [
             { model: Building, as: 'building' },
             { model: RoomType, as: 'room_type' },
@@ -44,7 +68,7 @@ const getRoomById = async (id) => {
         ]
     });
 
-    if (!room) throw { status: 404, message: 'Room not found' };
+    if (!room) throw { status: 404, message: 'Room not found or access denied' };
     return room;
 };
 
@@ -82,7 +106,7 @@ const createRoom = async (data) => {
 
 const updateRoom = async (id, data) => {
     const { gallery_images, ...updateData } = data;
-    
+
     const room = await Room.findByPk(id);
     if (!room) throw { status: 404, message: 'Room not found' };
 
@@ -120,18 +144,40 @@ const updateRoom = async (id, data) => {
     }
 };
 
-const deleteRoom = async (id) => {
+const deleteRoom = async (id, user) => {
     const room = await Room.findByPk(id);
     if (!room) throw { status: 404, message: 'Room not found' };
+
+    if (user && user.role === ROLES.BUILDING_MANAGER) {
+        if (room.building_id !== user.building_id) {
+            throw { status: 403, message: 'Permission denied: Cannot delete rooms for other buildings' };
+        }
+    }
 
     await room.destroy();
     return { message: `Room ${room.room_number} deleted successfully` };
 };
+
+const updateRoomStatus = async (id, status, user) => {
+    const room = await Room.findByPk(id);
+    if (!room) throw { status: 404, message: 'Room not found' };
+
+    if (user && user.role === ROLES.BUILDING_MANAGER) {
+        if (room.building_id !== user.building_id) {
+            throw { status: 403, message: 'Permission denied: Cannot manage rooms for other buildings' };
+        }
+    }
+
+    room.status = status;
+    await room.save();
+    return room;
+}
 
 module.exports = {
     getAllRooms,
     getRoomById,
     createRoom,
     updateRoom,
-    deleteRoom
+    deleteRoom,
+    updateRoomStatus
 };

@@ -3,12 +3,13 @@ const router = express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const buildingController = require('../controllers/building.controller');
-
+const authJwt = require('../middlewares/authJwt');
+const requireRoles = require('../middlewares/requireRoles');
+const { ROLES } = require('../constants/roles');
 /**
  * @swagger
  * tags:
  *   - name: Buildings
- *     description: Quản lý toà nhà
  */
 
 
@@ -18,6 +19,11 @@ const buildingController = require('../controllers/building.controller');
  *   get:
  *     operationId: getAllBuildings
  *     summary: Lấy danh sách toà nhà (phân trang + lọc)
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER, STAFF, RESIDENT, CUSTOMER]
+ *       Dữ liệu trả về sẽ được lọc tự động dựa trên quyền hạn của người dùng (Ví dụ: Resident chỉ thấy dữ liệu của mình, Manager thấy dữ liệu trong tòa nhà).
+ *     security:
+ *       - bearerAuth: []
  *     tags: [Buildings]
  *     parameters:
  *       - in: query
@@ -44,6 +50,8 @@ const buildingController = require('../controllers/building.controller');
  *         schema:
  *           type: boolean
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Thành công
  *         content:
@@ -68,7 +76,12 @@ const buildingController = require('../controllers/building.controller');
  *       500:
  *         description: Lỗi server
  */
-router.get('/', buildingController.getAllBuildings);
+router.get(
+    '/',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT, ROLES.CUSTOMER),
+    buildingController.getAllBuildings
+);
 
 /**
  * @swagger
@@ -76,6 +89,11 @@ router.get('/', buildingController.getAllBuildings);
  *   get:
  *     operationId: getBuildingById
  *     summary: Lấy chi tiết toà nhà theo ID
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER, STAFF, RESIDENT, CUSTOMER]
+ *       Dữ liệu trả về sẽ được lọc tự động dựa trên quyền hạn của người dùng (Ví dụ: Resident chỉ thấy dữ liệu của mình, Manager thấy dữ liệu trong tòa nhà).
+ *     security:
+ *       - bearerAuth: []
  *     tags: [Buildings]
  *     parameters:
  *       - in: path
@@ -85,6 +103,8 @@ router.get('/', buildingController.getAllBuildings);
  *           type: string
  *           format: uuid
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Thành công
  *         content:
@@ -99,7 +119,12 @@ router.get('/', buildingController.getAllBuildings);
  *       404:
  *         description: Không tìm thấy
  */
-router.get('/:id', buildingController.getBuildingById);
+router.get(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT, ROLES.CUSTOMER),
+    buildingController.getBuildingById
+);
 
 /**
  * @swagger
@@ -107,6 +132,10 @@ router.get('/:id', buildingController.getBuildingById);
  *   post:
  *     operationId: createBuilding
  *     summary: Tạo toà nhà mới
+ *     description: >
+ *       Required Roles: [ADMIN]
+ *     security:
+ *       - bearerAuth: []
  *     tags: [Buildings]
  *     requestBody:
  *       required: true
@@ -158,6 +187,8 @@ router.get('/:id', buildingController.getBuildingById);
  *               style: form
  *               explode: true
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       201:
  *         description: Tạo thành công
  *       400:
@@ -165,6 +196,8 @@ router.get('/:id', buildingController.getBuildingById);
  */
 router.post(
     '/',
+    authJwt,
+    requireRoles(ROLES.ADMIN),
     upload.fields([
         { name: 'thumbnail_url', maxCount: 1 },
         { name: 'image_url', maxCount: 10 }
@@ -178,6 +211,10 @@ router.post(
  *   put:
  *     operationId: updateBuilding
  *     summary: Cập nhật toà nhà
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER]
+ *     security:
+ *       - bearerAuth: []
  *     tags: [Buildings]
  *     parameters:
  *       - in: path
@@ -226,6 +263,8 @@ router.post(
  *               style: form
  *               explode: true
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Cập nhật thành công
  *       404:
@@ -233,6 +272,8 @@ router.post(
  */
 router.put(
     '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
     upload.fields([
         { name: 'thumbnail_url', maxCount: 1 },
         { name: 'images_url', maxCount: 10 }
@@ -246,6 +287,10 @@ router.put(
  *   delete:
  *     operationId: deleteBuilding
  *     summary: Xoá toà nhà
+ *     description: >
+ *       Required Roles: [ADMIN]
+ *     security:
+ *       - bearerAuth: []
  *     tags: [Buildings]
  *     parameters:
  *       - in: path
@@ -255,12 +300,19 @@ router.put(
  *           type: string
  *           format: uuid
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Xoá thành công
  *       404:
  *         description: Không tìm thấy
  */
-router.delete('/:id', buildingController.deleteBuilding);
+router.delete(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN),
+    buildingController.deleteBuilding
+);
 
 
 /**
@@ -269,6 +321,10 @@ router.delete('/:id', buildingController.deleteBuilding);
  *   patch:
  *     operationId: toggleBuildingStatus
  *     summary: Toggle trạng thái hoạt động
+ *     description: >
+ *       Required Roles: [ADMIN, BUILDING_MANAGER]
+ *     security:
+ *       - bearerAuth: []
  *     tags: [Buildings]
  *     parameters:
  *       - in: path
@@ -278,11 +334,18 @@ router.delete('/:id', buildingController.deleteBuilding);
  *           type: string
  *           format: uuid
  *     responses:
+ *       403:
+ *         description: Không có quyền truy cập (Forbidden)
  *       200:
  *         description: Cập nhật thành công
  *       404:
  *         description: Không tìm thấy
  */
-router.patch('/:id/status', buildingController.toggleBuildingStatus);
+router.patch(
+    '/:id/status',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+    buildingController.toggleBuildingStatus
+);
 
 module.exports = router;

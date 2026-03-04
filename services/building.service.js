@@ -8,14 +8,28 @@ const BuildingFacility = require('../models/buildingFacility.model');
 const University = require('../models/university.model');
 const Room = require('../models/room.model');
 const RoomType = require('../models/roomType.model');
+const { ROLES } = require('../constants/roles');
 
-const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_active } = {}) => {
+const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_active } = {}, user) => {
     const offset = (page - 1) * limit;
     const where = {};
 
     if (location_id) where.location_id = location_id;
-    if (is_active !== undefined) where.is_active = is_active === 'true';
     if (search) where.name = { [Op.iLike]: `%${search}%` };
+
+    // Apply role-based filtering
+    if (user.role === ROLES.ADMIN) {
+        // ADMIN can see everything and apply is_active query param if provided
+        if (is_active !== undefined) where.is_active = is_active === 'true';
+    } else if (user.role === ROLES.BUILDING_MANAGER || user.role === ROLES.STAFF) {
+        // Manager and Staff only see their assigned building.
+        // They can also filter by is_active param if needed for internal purposes.
+        where.id = user.building_id;
+        if (is_active !== undefined) where.is_active = is_active === 'true';
+    } else {
+        // RESIDENT, CUSTOMER only see active buildings
+        where.is_active = true;
+    }
 
     const { count, rows } = await Building.findAndCountAll({
         where,
@@ -39,16 +53,26 @@ const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_a
     };
 };
 
-const getBuildingById = async (id) => {
-    const building = await Building.findByPk(id, {
+const getBuildingById = async (id, user) => {
+    // Determine condition based on role
+    const where = { id };
+
+    if (user && (user.role === ROLES.BUILDING_MANAGER || user.role === ROLES.STAFF)) {
+        where.id = user.building_id;
+    } else if (user && (user.role === ROLES.RESIDENT || user.role === ROLES.CUSTOMER)) {
+        where.is_active = true;
+    }
+
+    const building = await Building.findOne({
+        where,
         include: [
             { model: Location, as: 'location' },
             { model: BuildingImage, as: 'images' },
             { model: Facility, as: 'facilities' }
         ]
     });
-    
-    if (!building) throw { status: 404, message: 'Building not found' };
+
+    if (!building) throw { status: 404, message: 'Building not found or access denied' };
 
     const rooms = await Room.findAll({
         where: { building_id: id },
@@ -82,7 +106,7 @@ const getBuildingById = async (id) => {
 
 const createBuilding = async (data) => {
     const { facilities, images, ...buildingData } = data;
-    
+
     const transaction = await sequelize.transaction();
 
     try {
@@ -138,7 +162,7 @@ const updateBuilding = async (id, data) => {
 const deleteBuilding = async (id) => {
     const building = await Building.findByPk(id);
     if (!building) throw { status: 404, message: 'Building not found' };
-    
+
     await building.destroy();
     return { message: `Building "${building.name}" deleted successfully` };
 };
@@ -153,11 +177,11 @@ const toggleBuildingStatus = async (id) => {
     return building
 }
 
-module.exports = { 
-    getAllBuildings, 
-    getBuildingById, 
-    createBuilding, 
-    updateBuilding, 
-    deleteBuilding, 
-    toggleBuildingStatus 
+module.exports = {
+    getAllBuildings,
+    getBuildingById,
+    createBuilding,
+    updateBuilding,
+    deleteBuilding,
+    toggleBuildingStatus
 };
