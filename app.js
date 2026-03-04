@@ -1,13 +1,10 @@
 require('dotenv').config()
-const setupSwagger = require('./setups/swaggerSetup');
-
 const express = require('express')
 const cors = require('cors')
 const app = express()
 
 app.use(cors())
 app.use(express.json())
-setupSwagger(app);
 
 // ─── Health check ──────────────────────────────────────────
 app.get('/health', (req, res) => res.json({ status: 'ok' }))

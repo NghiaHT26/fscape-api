@@ -49,12 +49,8 @@ class AuthService {
             "role",
             "first_name",
             "last_name",
-            "phone",
             "avatar_url",
-            "building_id",
             "is_active",
-            "last_login_at",
-            "created_at",
           ],
         },
       ],
@@ -70,7 +66,14 @@ class AuthService {
 
     return {
       access_token: generateAccessToken(auth.User),
-      user: auth.User, //return user data
+      user: {
+        id: auth.User.id,
+        email: auth.User.email,
+        role: auth.User.role,
+        first_name: auth.User.first_name,
+        last_name: auth.User.last_name,
+        avatar_url: auth.User.avatar_url,
+      },
     };
   }
 
@@ -146,7 +149,14 @@ class AuthService {
     await user.update({ last_login_at: new Date() });
     return {
       access_token: generateAccessToken(user),
-      user,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        avatar_url: user.avatar_url,
+      },
     };
   }
 }
