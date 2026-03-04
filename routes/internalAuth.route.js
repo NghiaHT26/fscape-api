@@ -3,6 +3,7 @@ const router = express.Router();
 
 const controller = require('../controllers/internalAuth.controller');
 const authJwt = require('../middlewares/authJwt');
+const requireRoles = require('../middlewares/requireRoles');
 const authInternal = require('../middlewares/authInternal');
 /**
  * @swagger
@@ -72,7 +73,7 @@ const authInternal = require('../middlewares/authInternal');
  *       400:
  *         description: Invalid email or password / Account inactive
  */
-router.post('/login', authInternal, controller.login);
+router.post('/login', requireRoles('ADMIN', 'STAFF', 'MANAGER', 'CUSTOMER'), controller.login);
 
 /**
  * @swagger
