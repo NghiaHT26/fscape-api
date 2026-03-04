@@ -1,12 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const universityController = require('../controllers/university.controller');
+const authJwt = require('../middlewares/authJwt');
+const requireAdmin = require('../middlewares/requireAdmin');
 
 /**
  * @swagger
  * tags:
  *   - name: Universities
  *     description: Quản lý trường đại học (thuộc Location)
+ */
+
+/**
+ * @swagger
+ * components:
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
  */
 
 /**
@@ -120,6 +132,8 @@ router.get('/:id', universityController.getUniversityById);
  *     operationId: createUniversity
  *     summary: Tạo trường đại học mới
  *     tags: [Universities]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -173,8 +187,12 @@ router.get('/:id', universityController.getUniversityById);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  */
-router.post('/', universityController.createUniversity);
+router.post('/', authJwt, requireAdmin, universityController.createUniversity);
 
 /**
  * @swagger
@@ -183,6 +201,8 @@ router.post('/', universityController.createUniversity);
  *     operationId: updateUniversity
  *     summary: Cập nhật trường đại học
  *     tags: [Universities]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -232,8 +252,12 @@ router.post('/', universityController.createUniversity);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  */
-router.put('/:id', universityController.updateUniversity);
+router.put('/:id', authJwt, requireAdmin, universityController.updateUniversity);
 
 /**
  * @swagger
@@ -242,6 +266,8 @@ router.put('/:id', universityController.updateUniversity);
  *     operationId: deleteUniversity
  *     summary: Xoá trường đại học (hard delete)
  *     tags: [Universities]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -268,8 +294,12 @@ router.put('/:id', universityController.updateUniversity);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  */
-router.delete('/:id', universityController.deleteUniversity);
+router.delete('/:id', authJwt, requireAdmin, universityController.deleteUniversity);
 
 /**
  * @swagger
@@ -278,6 +308,8 @@ router.delete('/:id', universityController.deleteUniversity);
  *     operationId: toggleUniversityStatus
  *     summary: Bật/Tắt trạng thái hoạt động của University (toggle is_active)
  *     tags: [Universities]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -306,7 +338,11 @@ router.delete('/:id', universityController.deleteUniversity);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  */
-router.patch('/:id/status', universityController.toggleUniversityStatus);
+router.patch('/:id/status', authJwt, requireAdmin, universityController.toggleUniversityStatus);
 
 module.exports = router;

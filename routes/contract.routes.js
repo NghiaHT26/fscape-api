@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const contractController = require('../controllers/contract.controller');
+const authJwt = require('../middlewares/authJwt');
 
 /**
  * @swagger
@@ -77,6 +78,21 @@ const contractController = require('../controllers/contract.controller');
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/', contractController.getAllContracts);
+
+/**
+ * @swagger
+ * /api/contracts/my:
+ *   get:
+ *     operationId: getMyContracts
+ *     summary: Lấy danh sách hợp đồng của tôi
+ *     tags: [Contracts]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Thành công
+ */
+router.get('/my', authJwt, contractController.getMyContracts);
 
 /**
  * @swagger
@@ -359,6 +375,6 @@ router.delete('/:id', contractController.deleteContract);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.patch('/:id/approve', contractController.approveContract);
+router.patch('/:id/approve', authJwt, contractController.approveContract);
 
 module.exports = router;

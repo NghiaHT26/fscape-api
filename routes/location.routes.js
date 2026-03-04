@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const locationController = require('../controllers/location.controller');
+const authJwt = require('../middlewares/authJwt');
+const requireAdmin = require('../middlewares/requireAdmin');
 
 /**
  * @swagger
@@ -178,7 +180,7 @@ router.get('/:id', locationController.getLocationById);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/', locationController.createLocation);
+router.post('/', authJwt, requireAdmin, locationController.createLocation);
 
 /**
  * @swagger
@@ -233,7 +235,7 @@ router.post('/', locationController.createLocation);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/:id', locationController.updateLocation);
+router.put('/:id', authJwt, requireAdmin, locationController.updateLocation);
 
 /**
  * @swagger
@@ -275,7 +277,7 @@ router.put('/:id', locationController.updateLocation);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete('/:id', locationController.deleteLocation);
+router.delete('/:id', authJwt, requireAdmin, locationController.deleteLocation);
 
 /**
  * @swagger
@@ -313,6 +315,6 @@ router.delete('/:id', locationController.deleteLocation);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.patch('/:id/status', locationController.toggleLocationStatus);
+router.patch('/:id/status', authJwt, requireAdmin, locationController.toggleLocationStatus);
 
 module.exports = router;

@@ -3,6 +3,8 @@ const router = express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const buildingController = require('../controllers/building.controller');
+const authJwt = require('../middlewares/authJwt');
+const requireAdmin = require('../middlewares/requireAdmin');
 
 /**
  * @swagger
@@ -165,6 +167,8 @@ router.get('/:id', buildingController.getBuildingById);
  */
 router.post(
     '/',
+    authJwt,
+    requireAdmin,
     upload.fields([
         { name: 'thumbnail_url', maxCount: 1 },
         { name: 'image_url', maxCount: 10 }
@@ -233,6 +237,8 @@ router.post(
  */
 router.put(
     '/:id',
+    authJwt,
+    requireAdmin,
     upload.fields([
         { name: 'thumbnail_url', maxCount: 1 },
         { name: 'images_url', maxCount: 10 }
@@ -260,7 +266,7 @@ router.put(
  *       404:
  *         description: Không tìm thấy
  */
-router.delete('/:id', buildingController.deleteBuilding);
+router.delete('/:id', authJwt, requireAdmin, buildingController.deleteBuilding);
 
 
 /**
@@ -283,6 +289,6 @@ router.delete('/:id', buildingController.deleteBuilding);
  *       404:
  *         description: Không tìm thấy
  */
-router.patch('/:id/status', buildingController.toggleBuildingStatus);
+router.patch('/:id/status', authJwt, requireAdmin, buildingController.toggleBuildingStatus);
 
 module.exports = router;
