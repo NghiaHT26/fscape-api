@@ -21,9 +21,9 @@ const getAllContracts = async ({ page = 1, limit = 10, status, building_id, sear
 
     const include = [
         { model: User, as: 'customer', attributes: ['id', 'first_name', 'last_name', 'email'] },
-        {
-            model: Room,
-            as: 'room',
+        { 
+            model: Room, 
+            as: 'room', 
             attributes: ['id', 'room_number'],
             include: building_id ? [{ model: Building, as: 'building', where: { id: building_id } }] : []
         }
@@ -51,10 +51,10 @@ const getContractById = async (id) => {
         include: [
             { model: User, as: 'customer' },
             { model: User, as: 'manager' },
-            {
-                model: Room,
-                as: 'room',
-                include: [{ model: Building, as: 'building' }]
+            { 
+                model: Room, 
+                as: 'room', 
+                include: [{ model: Building, as: 'building' }] 
             },
             { model: ContractTemplate, as: 'template' }
         ]
@@ -74,7 +74,7 @@ const updateContractStatus = async (id, status, manager_id = null) => {
     if (status === 'ACTIVE') {
         // Tự động gán manager phê duyệt nếu chưa có
         if (manager_id) contract.manager_id = manager_id;
-
+        
         // Cập nhật trạng thái phòng sang OCCUPIED
         const room = await Room.findByPk(contract.room_id);
         if (room) await room.update({ status: 'OCCUPIED' });
@@ -112,7 +112,7 @@ const createContract = async (data) => {
 const updateContract = async (id, data) => {
     const contract = await Contract.findByPk(id);
     if (!contract) throw { status: 404, message: 'Contract not found' };
-
+    
     if (['ACTIVE', 'FINISHED'].includes(contract.status)) {
         throw { status: 400, message: 'Cannot edit an active or finished contract' };
     }
@@ -135,22 +135,4 @@ const deleteContract = async (id) => {
     return { message: 'Contract deleted successfully' };
 };
 
-/**
- * Lấy danh sách hợp đồng của tôi (dành cho Resident/Customer)
- */
-const getMyContracts = async (userId) => {
-    return await Contract.findAll({
-        where: { customer_id: userId },
-        include: [
-            {
-                model: Room,
-                as: 'room',
-                attributes: ['id', 'room_number'],
-                include: [{ model: Building, as: 'building' }]
-            }
-        ],
-        order: [['created_at', 'DESC']]
-    });
-};
-
-module.exports = { getAllContracts, getContractById, getMyContracts, updateContractStatus, createContract, updateContract, deleteContract };
+module.exports = { getAllContracts, getContractById, updateContractStatus, createContract, updateContract, deleteContract };
