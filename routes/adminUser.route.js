@@ -2,15 +2,16 @@ const express = require('express');
 const router = express.Router();
 
 const authJwt = require('../middlewares/authJwt');
-const requireAdmin = require('../middlewares/requireAdmin');
+const requireRoles = require('../middlewares/requireRoles');
+const { ROLES } = require('../constants/roles');
 const controller = require('../controllers/adminUser.controller');
 
-router.use(authJwt, requireAdmin);
+router.use(authJwt);
 
-router.post('/', controller.createUser);
+router.post('/', requireRoles(ROLES.ADMIN), controller.createUser);
 
-router.get('/', controller.listUsers);
+router.get('/', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), controller.listUsers);
 
-router.patch('/:id/status', controller.updateUserStatus);
+router.patch('/:id/status', requireRoles(ROLES.ADMIN), controller.updateUserStatus);
 
 module.exports = router;
