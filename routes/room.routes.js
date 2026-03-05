@@ -1,41 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
 const roomController = require('../controllers/room.controller');
 const authJwt = require('../middlewares/authJwt');
+const authJwtOptional = require('../middlewares/authJwtOptional');
 const requireAdmin = require('../middlewares/requireAdmin');
+const requireRoles = require('../middlewares/requireRoles');
+const { ROLES } = require('../constants/roles');
 
-router.get('/', roomController.getAllRooms);
+router.get('/', authJwtOptional, roomController.getAllRooms);
 
-router.get('/:id', roomController.getRoomById);
+router.get('/:id', authJwtOptional, roomController.getRoomById);
 
-router.post(
-  '/',
-  authJwt,
-  requireAdmin,
-  upload.fields([
-    { name: 'thumbnail', maxCount: 1 },
-    { name: 'image_3d', maxCount: 1 },
-    { name: 'blueprint', maxCount: 1 },
-    { name: 'gallery_images', maxCount: 10 }
-  ]),
-  roomController.createRoom
-);
+router.post('/', authJwt, requireAdmin, roomController.createRoom);
 
-router.put(
-  '/:id',
-  authJwt,
-  requireAdmin,
-  upload.fields([
-    { name: 'thumbnail', maxCount: 1 },
-    { name: 'image_3d', maxCount: 1 },
-    { name: 'blueprint', maxCount: 1 },
-    { name: 'gallery_images', maxCount: 10 }
-  ]),
-  roomController.updateRoom
-);
+router.put('/:id', authJwt, requireAdmin, roomController.updateRoom);
 
 router.delete('/:id', authJwt, requireAdmin, roomController.deleteRoom);
+
+router.patch(
+  '/:id/status',
+  authJwt,
+  requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+  roomController.toggleRoomStatus
+);
 
 module.exports = router;
