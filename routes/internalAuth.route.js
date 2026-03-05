@@ -73,7 +73,7 @@ const authInternal = require('../middlewares/authInternal');
  *       400:
  *         description: Invalid email or password / Account inactive
  */
-router.post('/login', requireRoles('ADMIN', 'STAFF', 'MANAGER', 'CUSTOMER'), controller.login);
+router.post('/login', controller.login);
 
 /**
  * @swagger
