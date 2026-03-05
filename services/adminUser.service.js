@@ -1,7 +1,9 @@
+const crypto = require('crypto');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const { sequelize } = require('../config/db');
 const User = require('../models/user.model');
+const Building = require('../models/building.model');
 const { AuthProvider } = require('../models/authProvider.model');
 const { ROLES, ADMIN_MANAGEABLE_ROLES } = require('../constants/roles');
 
@@ -11,40 +13,59 @@ class AdminUserService {
   // CREATE INTERNAL USER
   // =========================
   static async createInternalUser(payload) {
-    const {
-      email,
-      password,
-      role,
-      first_name,
-      last_name,
-      phone,
-      building_id,
-    } = payload;
+    const { email, role, first_name, last_name, phone, building_id } = payload;
 
-    if (!ADMIN_MANAGEABLE_ROLES.includes(role)) {
-      throw new Error('Role is not allowed to be created by admin');
+    // --- Required fields ---
+    if (!email || !role || !first_name || !last_name || !phone) {
+      throw new Error('email, role, first_name, last_name, and phone are required');
     }
 
+    // --- Format validation ---
+    if (!ADMIN_MANAGEABLE_ROLES.includes(role)) {
+      throw new Error(`Role must be one of: ${ADMIN_MANAGEABLE_ROLES.join(', ')}`);
+    }
+
+    const generatedPassword = crypto.randomBytes(4).toString('hex');
+
+    if (phone.length < 9 || phone.length > 15) {
+      throw new Error('Phone must be between 9 and 15 characters');
+    }
+
+    // --- Email uniqueness ---
     const existed = await User.findOne({ where: { email } });
     if (existed) {
       throw new Error('Email already exists');
     }
 
+    // --- Building validation ---
+    if (building_id) {
+      const building = await Building.findByPk(building_id);
+      if (!building) {
+        throw new Error('Building not found');
+      }
+
+      if (role === ROLES.BUILDING_MANAGER) {
+        const existingManager = await User.findOne({
+          where: {
+            building_id,
+            role: ROLES.BUILDING_MANAGER,
+            is_active: true,
+          },
+        });
+        if (existingManager) {
+          throw new Error('This building already has an active manager');
+        }
+      }
+    }
+
+    // --- Create user + auth provider ---
     const user = await sequelize.transaction(async (t) => {
       const createdUser = await User.create(
-        {
-          email,
-          role,
-          first_name,
-          last_name,
-          phone,
-          building_id,
-          is_active: true,
-        },
+        { email, role, first_name, last_name, phone, building_id, is_active: true },
         { transaction: t }
       );
 
-      const passwordHash = await bcrypt.hash(password, 10);
+      const passwordHash = await bcrypt.hash(generatedPassword, 10);
 
       await AuthProvider.create(
         {
@@ -59,7 +80,18 @@ class AdminUserService {
 
       return createdUser;
     });
-    return user;
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      phone: user.phone,
+      building_id: user.building_id,
+      is_active: user.is_active,
+      generated_password: generatedPassword,
+    };
   }
 
   // =========================
@@ -85,9 +117,9 @@ class AdminUserService {
         attributes: [
           'id', 'email', 'role', 'first_name', 'last_name',
           'phone', 'avatar_url', 'building_id', 'is_active',
-          'created_at', 'last_login_at',
+          'createdAt',
         ],
-        order: [['created_at', 'DESC']],
+        order: [['createdAt', 'DESC']],
         limit: Number(limit),
         offset,
       });
@@ -114,7 +146,7 @@ class AdminUserService {
           'id', 'email', 'role', 'first_name', 'last_name',
           'phone', 'avatar_url', 'is_active',
         ],
-        order: [['created_at', 'DESC']],
+        order: [['createdAt', 'DESC']],
         limit: Number(limit),
         offset,
       });
@@ -142,6 +174,10 @@ class AdminUserService {
 
     if (user.role === ROLES.ADMIN) {
       throw new Error('Cannot change admin account status');
+    }
+
+    if (user.is_active === isActive) {
+      throw new Error(`User status is already ${isActive ? 'active' : 'inactive'}`);
     }
 
     user.is_active = isActive;

@@ -89,7 +89,7 @@ const getMyBookings = async (userId) => {
                 include: [{ model: Building, as: 'building' }]
             }
         ],
-        order: [['created_at', 'DESC']]
+        order: [['createdAt', 'DESC']]
     });
 };
 

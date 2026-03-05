@@ -62,8 +62,6 @@ class AuthService {
     const match = await comparePassword(password, auth.password_hash);
     if (!match) throw new Error("Invalid credentials");
 
-    await auth.User.update({ last_login_at: new Date() });
-
     return {
       access_token: generateAccessToken(auth.User),
       user: {
@@ -146,7 +144,6 @@ class AuthService {
       });
     }
 
-    await user.update({ last_login_at: new Date() });
     return {
       access_token: generateAccessToken(user),
       user: {

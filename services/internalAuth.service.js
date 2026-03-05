@@ -40,8 +40,6 @@ class InternalAuthService {
       throw new Error("Incorrect password");
     }
 
-    await user.update({ last_login_at: new Date() });
-
     const token = jwt.sign(
       {
         sub: user.id,

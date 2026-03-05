@@ -9,11 +9,11 @@ const createBookingPaymentUrl = async (req, res) => {
     try {
         const booking = await Booking.findByPk(bookingId);
         if (!booking) {
-            return res.status(404).json({ success: false, message: "Không tìm thấy đơn đặt phòng." });
+            return res.status(404).json({ message: "Không tìm thấy đơn đặt phòng." });
         }
 
         if (booking.status !== "PENDING") {
-            return res.status(400).json({ success: false, message: "Đơn đặt phòng này không ở trạng thái chờ thanh toán." });
+            return res.status(400).json({ message: "Đơn đặt phòng này không ở trạng thái chờ thanh toán." });
         }
 
         // Tạo bản ghi Payment
@@ -39,12 +39,11 @@ const createBookingPaymentUrl = async (req, res) => {
         });
 
         return res.status(200).json({
-            success: true,
             data: { paymentUrl }
         });
     } catch (error) {
         console.error("❌ Controller Error (createBookingPaymentUrl):", error);
-        return res.status(500).json({ success: false, message: error.message || "Internal Server Error" });
+        return res.status(500).json({ message: error.message || "Internal Server Error" });
     }
 };
 
@@ -139,12 +138,11 @@ const getMyPayments = async (req, res) => {
         });
 
         return res.status(200).json({
-            success: true,
             data: payments
         });
     } catch (error) {
         console.error("❌ Controller Error (getMyPayments):", error);
-        return res.status(500).json({ success: false, message: error.message || "Internal Server Error" });
+        return res.status(500).json({ message: error.message || "Internal Server Error" });
     }
 };
 

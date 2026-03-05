@@ -16,6 +16,7 @@ const getAllUniversities = async ({ page = 1, limit = 10, location_id, is_active
 
     const { count, rows } = await University.findAndCountAll({
         where,
+        attributes: { exclude: ['createdAt', 'updatedAt'] },
         include: [
             { model: Location, as: 'location', attributes: ['id', 'name'] }
         ],
@@ -38,17 +39,22 @@ const getAllUniversities = async ({ page = 1, limit = 10, location_id, is_active
  */
 const getUniversityById = async (id) => {
     const university = await University.findByPk(id, {
+        attributes: { exclude: ['createdAt', 'updatedAt'] },
         include: [
-            { model: Location, as: 'location' }
+            {
+                model: Location,
+                as: 'location',
+                attributes: { exclude: ['createdAt', 'updatedAt', 'is_active'] }
+            }
         ]
     });
-    
+
     if (!university) throw { status: 404, message: 'University not found' };
 
     const nearbyBuildings = await Building.findAll({
-        where: { 
+        where: {
             location_id: university.location_id,
-            is_active: true 
+            is_active: true
         },
         attributes: ['id', 'name', 'address', 'thumbnail_url', 'latitude', 'longitude']
     });
@@ -76,32 +82,39 @@ const updateUniversity = async (id, data) => {
         if (duplicate) throw { status: 409, message: 'University name already exists' };
     }
 
-    return await university.update(data);
+    // Restrict what can be updated via generic PUT
+    const { is_active, ...allowedUpdateData } = data;
+
+    return await university.update(allowedUpdateData);
 };
 
 const deleteUniversity = async (id) => {
     const university = await University.findByPk(id);
     if (!university) throw { status: 404, message: 'University not found' };
-    
+
     await university.destroy();
     return { message: `University "${university.name}" deleted successfully` };
 };
 
-const toggleUniversityStatus = async (id) => {
+const toggleUniversityStatus = async (id, isActive) => {
     const university = await University.findByPk(id)
     if (!university) throw { status: 404, message: 'University not found' }
 
-    university.is_active = !university.is_active
+    if (university.is_active === isActive) {
+        throw { status: 400, message: `University is already ${isActive ? 'active' : 'inactive'}` }
+    }
+
+    university.is_active = isActive
     await university.save()
 
     return university
 }
 
-module.exports = { 
-    getAllUniversities, 
-    getUniversityById, 
-    createUniversity, 
-    updateUniversity, 
+module.exports = {
+    getAllUniversities,
+    getUniversityById,
+    createUniversity,
+    updateUniversity,
     deleteUniversity,
     toggleUniversityStatus
 };

@@ -6,14 +6,12 @@ const createBooking = async (req, res) => {
         const booking = await bookingService.createBooking(userId, req.body);
 
         return res.status(201).json({
-            success: true,
             message: 'Đã tạo đơn đặt phòng thành công.',
             data: booking
         });
     } catch (error) {
         console.error('❌ Controller Error (createBooking):', error);
         return res.status(error.status || 500).json({
-            success: false,
             message: error.message || 'Internal Server Error'
         });
     }
@@ -25,12 +23,10 @@ const getMyBookings = async (req, res) => {
         const bookings = await bookingService.getMyBookings(userId);
 
         return res.status(200).json({
-            success: true,
             data: bookings
         });
     } catch (error) {
         return res.status(error.status || 500).json({
-            success: false,
             message: error.message || 'Internal Server Error'
         });
     }
@@ -43,12 +39,10 @@ const getBookingById = async (req, res) => {
         const booking = await bookingService.getBookingById(id, userId);
 
         return res.status(200).json({
-            success: true,
             data: booking
         });
     } catch (error) {
         return res.status(error.status || 500).json({
-            success: false,
             message: error.message || 'Internal Server Error'
         });
     }

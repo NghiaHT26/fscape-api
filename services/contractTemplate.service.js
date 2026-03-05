@@ -1,7 +1,7 @@
 const ContractTemplate = require('../models/contractTemplate.model');
 
 const getAllTemplates = async () => {
-    return await ContractTemplate.findAll({ order: [['created_at', 'DESC']] });
+    return await ContractTemplate.findAll({ order: [['createdAt', 'DESC']] });
 };
 
 const createTemplate = async (data) => {

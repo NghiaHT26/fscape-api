@@ -1,23 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
 const buildingController = require('../controllers/building.controller');
 const authJwt = require('../middlewares/authJwt');
+const authJwtOptional = require('../middlewares/authJwtOptional');
 const requireAdmin = require('../middlewares/requireAdmin');
+const requireRoles = require('../middlewares/requireRoles');
+const { ROLES } = require('../constants/roles');
 
-router.get('/', buildingController.getAllBuildings);
+router.get('/', authJwtOptional, buildingController.getAllBuildings);
 
-router.get('/:id', buildingController.getBuildingById);
+router.get('/:id', authJwtOptional, buildingController.getBuildingById);
 
 router.post(
     '/',
     authJwt,
     requireAdmin,
-    upload.fields([
-        { name: 'thumbnail_url', maxCount: 1 },
-        { name: 'image_url', maxCount: 10 }
-    ]),
     buildingController.createBuilding
 );
 
@@ -25,15 +22,11 @@ router.put(
     '/:id',
     authJwt,
     requireAdmin,
-    upload.fields([
-        { name: 'thumbnail_url', maxCount: 1 },
-        { name: 'images_url', maxCount: 10 }
-    ]),
     buildingController.updateBuilding
 );
 
 router.delete('/:id', authJwt, requireAdmin, buildingController.deleteBuilding);
 
-router.patch('/:id/status', authJwt, requireAdmin, buildingController.toggleBuildingStatus);
+router.patch('/:id/status', authJwt, requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), buildingController.toggleBuildingStatus);
 
 module.exports = router;

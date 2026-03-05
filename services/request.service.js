@@ -41,7 +41,7 @@ const getAllRequests = async ({ page = 1, limit = 10, status, request_type, room
         ],
         limit: Number(limit),
         offset: Number(offset),
-        order: [['created_at', 'DESC']]
+        order: [['createdAt', 'DESC']]
     });
 
     return {
@@ -65,7 +65,7 @@ const getRequestById = async (id) => {
                 model: RequestStatusHistory,
                 as: 'status_history',
                 include: [{ model: User, as: 'modifier', attributes: ['id', 'first_name', 'last_name', 'role'] }],
-                order: [['created_at', 'DESC']]
+                order: [['createdAt', 'DESC']]
             }
         ]
     });

@@ -34,7 +34,7 @@ const getAllContracts = async ({ page = 1, limit = 10, status, building_id, sear
         include,
         limit: Number(limit),
         offset: Number(offset),
-        order: [['created_at', 'DESC']]
+        order: [['createdAt', 'DESC']]
     });
 
     return {
@@ -149,7 +149,7 @@ const getMyContracts = async (userId) => {
                 include: [{ model: Building, as: 'building' }]
             }
         ],
-        order: [['created_at', 'DESC']]
+        order: [['createdAt', 'DESC']]
     });
 };
 

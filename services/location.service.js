@@ -81,7 +81,10 @@ const updateLocation = async (id, data) => {
         if (duplicate) throw { status: 409, message: `Location "${data.name}" already exists` };
     }
 
-    return await location.update(data);
+    // Restrict what can be updated via generic PUT (e.g., prevent changing is_active)
+    const { is_active, ...allowedUpdateData } = data;
+
+    return await location.update(allowedUpdateData);
 };
 
 /**
@@ -108,11 +111,16 @@ const deleteLocation = async (id) => {
     return { message: `Location "${location.name}" deleted successfully` };
 };
 
-const toggleLocationStatus = async (id) => {
+const toggleLocationStatus = async (id, isActive) => {
+    const { Location } = sequelize.models;
     const location = await Location.findByPk(id)
     if (!location) throw { status: 404, message: 'Location not found' }
 
-    location.is_active = !location.is_active
+    if (location.is_active === isActive) {
+        throw { status: 400, message: `Location is already ${isActive ? 'active' : 'inactive'}` }
+    }
+
+    location.is_active = isActive
     await location.save()
 
     return location

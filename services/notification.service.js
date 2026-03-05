@@ -70,11 +70,11 @@ const getUserNotifications = async (userId, { page = 1, limit = 10, is_read } = 
         include: [{ 
             model: Notification, 
             as: 'notification',
-            attributes: ['type', 'title', 'content', 'reference_type', 'reference_id', 'created_at']
+            attributes: ['type', 'title', 'content', 'reference_type', 'reference_id', 'createdAt']
         }],
         limit: Number(limit),
         offset: Number(offset),
-        order: [['created_at', 'DESC']]
+        order: [['createdAt', 'DESC']]
     });
 
     return {

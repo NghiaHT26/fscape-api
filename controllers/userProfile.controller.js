@@ -7,7 +7,6 @@ exports.getProfile = async (req, res) => {
     const user = await userService.getProfileById(userId);
 
     res.json({
-      success: true,
       data: user
     });
   } catch (error) {
@@ -26,7 +25,6 @@ exports.updateProfile = async (req, res) => {
     const user = await userService.updateProfileById(userId, req.body);
 
     res.json({
-      success: true,
       message: 'Profile updated successfully',
       data: {
         id: user.id,

@@ -1,4 +1,2 @@
 
-module.exports = {
-  serviceTypeValidator: require('./serviceType.validator'),
-};
+module.exports = {};
