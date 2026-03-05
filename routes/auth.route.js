@@ -254,5 +254,7 @@ router.post('/forgot-password', validator.forgotPassword, validate, controller.f
  *                   type: string
  */
 router.post('/reset-password', validator.resetPassword, validate, controller.resetPassword);
+router.post('/google', validator.googleLogin, validate, controller.googleLogin);
+router.post('/google/verify', validator.googleVerify, validate, controller.googleVerify);
 
 module.exports = router;

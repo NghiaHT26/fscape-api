@@ -5,7 +5,6 @@ const getAllRoomTypes = async ({
     page = 1,
     limit = 10,
     is_active,
-    is_active,
     search,
     user
 } = {}) => {
