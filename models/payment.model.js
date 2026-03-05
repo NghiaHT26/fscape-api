@@ -2,69 +2,123 @@ const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
 const Payment = sequelize.define('Payment', {
-  id: {
-    type: DataTypes.UUID,
-    primaryKey: true,
-    defaultValue: DataTypes.UUIDV4
-  },
-
-  payment_number: {
-    type: DataTypes.STRING(50),
-    allowNull: false, unique: true
-  },
-
-  invoice_id: {
-    type: DataTypes.UUID,
-    allowNull: true
-  },
-
-  contract_id: {
-    type: DataTypes.UUID,
-    allowNull: true
-  }, // Dành cho thanh toán hợp đồng
-
-  booking_id: {
-    type: DataTypes.UUID,
-    allowNull: true
-  }, // Dành cho thanh toán đặt cọc
-
-  user_id: {
-    type: DataTypes.UUID,
-    allowNull: false
-  },
-
-  amount: {
-    type: DataTypes.DECIMAL(15, 2),
-    allowNull: false
-  },
-
-  payment_type: {
-    type: DataTypes.STRING(50),
-    allowNull: false // 'DEPOSIT', 'RENT', 'SERVICE'
-  },
-
-  status: {
-    type: DataTypes.STRING(50),
-    defaultValue: 'PENDING' // PENDING, PROCESSING, SUCCESS, FAILED, CANCELLED, REFUNDED
-  },
-
-  gateway_transaction_id: {
-    type: DataTypes.STRING(255)
-  },
-
-  gateway_response: {
-    type: DataTypes.JSONB
-  },
-
-  paid_at: {
-    type: DataTypes.DATE
-  }
-}, {
-  tableName: 'payments',
-  timestamps: true,
-  underscored: true,
-  indexes: [{ unique: true, fields: ['payment_number'] }, { fields: ['status'] }]
-});
+    id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    payment_number: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      unique: "payments_payment_number_key"
+    },
+    invoice_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'invoices',
+        key: 'id'
+      }
+    },
+    contract_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'contracts',
+        key: 'id'
+      }
+    },
+    user_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    amount: {
+      type: DataTypes.DECIMAL,
+      allowNull: false
+    },
+    payment_type: {
+      type: DataTypes.ENUM("DEPOSIT","RENT","REQUEST","REFUND"),
+      allowNull: false
+    },
+    status: {
+      type: DataTypes.ENUM("PENDING","PROCESSING","SUCCESS","FAILED","CANCELLED","REFUNDED"),
+      allowNull: true,
+      defaultValue: "PENDING"
+    },
+    gateway_transaction_id: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+    gateway_response: {
+      type: DataTypes.JSONB,
+      allowNull: true
+    },
+    paid_at: {
+      type: DataTypes.DATE,
+      allowNull: true
+    }
+  }, {
+    tableName: 'payments',
+    schema: 'public',
+    timestamps: true,
+    underscored: true,
+    indexes: [
+      {
+        name: "idx_payments_contract_id",
+        fields: [
+          { name: "contract_id" },
+        ]
+      },
+      {
+        name: "idx_payments_gateway_transaction_id",
+        fields: [
+          { name: "gateway_transaction_id" },
+        ]
+      },
+      {
+        name: "idx_payments_invoice_id",
+        fields: [
+          { name: "invoice_id" },
+        ]
+      },
+      {
+        name: "idx_payments_payment_number",
+        fields: [
+          { name: "payment_number" },
+        ]
+      },
+      {
+        name: "idx_payments_status",
+        fields: [
+          { name: "status" },
+        ]
+      },
+      {
+        name: "idx_payments_user_id",
+        fields: [
+          { name: "user_id" },
+        ]
+      },
+      {
+        name: "payments_payment_number_key",
+        unique: true,
+        fields: [
+          { name: "payment_number" },
+        ]
+      }, {
+        name: "payments_pkey",
+        unique: true,
+        fields: [
+          { name: "id" },
+        ]
+      },
+    ]
+  });
 
 Payment.associate = (models) => {
   Payment.belongsTo(models.User, { foreignKey: 'user_id', as: 'payer' });
@@ -72,5 +126,4 @@ Payment.associate = (models) => {
   Payment.belongsTo(models.Contract, { foreignKey: 'contract_id', as: 'contract' });
   Payment.belongsTo(models.Booking, { foreignKey: 'booking_id', as: 'booking' });
 };
-
 module.exports = Payment;
