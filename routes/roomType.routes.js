@@ -2,6 +2,9 @@ const express = require('express')
 const router = express.Router()
 const roomTypeController = require('../controllers/roomType.controller')
 
+const authJwt = require('../middlewares/authJwt')
+const requireRoles = require('../middlewares/requireRoles')
+const { ROLES } = require('../constants/roles')
 /**
  * @swagger
  * tags:
@@ -69,7 +72,12 @@ const roomTypeController = require('../controllers/roomType.controller')
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/', roomTypeController.getAllRoomTypes)
+router.get(
+    '/',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT, ROLES.CUSTOMER),
+    roomTypeController.getAllRoomTypes
+)
 
 /**
  * @swagger
@@ -105,7 +113,12 @@ router.get('/', roomTypeController.getAllRoomTypes)
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/:id', roomTypeController.getRoomTypeById)
+router.get(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT, ROLES.CUSTOMER),
+    roomTypeController.getRoomTypeById
+)
 
 /**
  * @swagger
@@ -185,7 +198,12 @@ router.get('/:id', roomTypeController.getRoomTypeById)
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/', roomTypeController.createRoomType)
+router.post(
+    '/',
+    authJwt,
+    requireRoles(ROLES.ADMIN),
+    roomTypeController.createRoomType
+)
 
 /**
  * @swagger
@@ -257,7 +275,12 @@ router.post('/', roomTypeController.createRoomType)
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/:id', roomTypeController.updateRoomType)
+router.put(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN),
+    roomTypeController.updateRoomType
+)
 
 /**
  * @swagger
@@ -293,6 +316,11 @@ router.put('/:id', roomTypeController.updateRoomType)
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete('/:id', roomTypeController.deleteRoomType)
+router.delete(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN),
+    roomTypeController.deleteRoomType
+)
 
 module.exports = router

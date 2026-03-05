@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const universityController = require('../controllers/university.controller');
-
+const authJwt = require('../middlewares/authJwt');
+const requireRoles = require('../middlewares/requireRoles');
+const { ROLES } = require('../constants/roles');
 /**
  * @swagger
  * tags:
@@ -75,7 +77,12 @@ const universityController = require('../controllers/university.controller');
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/', universityController.getAllUniversities);
+router.get(
+    '/',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT, ROLES.CUSTOMER),
+    universityController.getAllUniversities
+);
 
 /**
  * @swagger
@@ -111,7 +118,12 @@ router.get('/', universityController.getAllUniversities);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/:id', universityController.getUniversityById);
+router.get(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT, ROLES.CUSTOMER),
+    universityController.getUniversityById
+);
 
 /**
  * @swagger
@@ -174,7 +186,12 @@ router.get('/:id', universityController.getUniversityById);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/', universityController.createUniversity);
+router.post(
+    '/',
+    authJwt,
+    requireRoles(ROLES.ADMIN),
+    universityController.createUniversity
+);
 
 /**
  * @swagger
@@ -233,7 +250,12 @@ router.post('/', universityController.createUniversity);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/:id', universityController.updateUniversity);
+router.put(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN),
+    universityController.updateUniversity
+);
 
 /**
  * @swagger
@@ -269,7 +291,12 @@ router.put('/:id', universityController.updateUniversity);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete('/:id', universityController.deleteUniversity);
+router.delete(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN),
+    universityController.deleteUniversity
+);
 
 /**
  * @swagger
@@ -307,6 +334,11 @@ router.delete('/:id', universityController.deleteUniversity);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.patch('/:id/status', universityController.toggleUniversityStatus);
+router.patch(
+    '/:id/status',
+    authJwt,
+    requireRoles(ROLES.ADMIN),
+    universityController.toggleUniversityStatus
+);
 
 module.exports = router;

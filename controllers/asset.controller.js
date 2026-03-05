@@ -7,14 +7,14 @@ const handleError = (res, err) => {
 
 const getAllAssets = async (req, res) => {
     try {
-        const result = await assetService.getAllAssets(req.query);
+        const result = await assetService.getAllAssets({ ...req.query, user: req.user });
         return res.status(200).json({ success: true, ...result });
     } catch (err) { return handleError(res, err); }
 };
 
 const getAssetById = async (req, res) => {
     try {
-        const asset = await assetService.getAssetById(req.params.id);
+        const asset = await assetService.getAssetById(req.params.id, req.user);
         return res.status(200).json({ success: true, data: asset });
     } catch (err) { return handleError(res, err); }
 };
@@ -25,7 +25,7 @@ const createAsset = async (req, res) => {
         if (!qr_code || !name || !building_id) {
             return res.status(400).json({ success: false, message: 'QR Code, Name and Building ID are required' });
         }
-        const asset = await assetService.createAsset(req.body);
+        const asset = await assetService.createAsset(req.body, req.user);
         return res.status(201).json({ success: true, message: 'Asset created', data: asset });
     } catch (err) { return handleError(res, err); }
 };
@@ -34,14 +34,14 @@ const updateAsset = async (req, res) => {
     try {
         // Lấy ID người thực hiện từ middleware auth (nếu có)
         const performer_id = req.user ? req.user.id : null;
-        const asset = await assetService.updateAsset(req.params.id, req.body, performer_id);
+        const asset = await assetService.updateAsset(req.params.id, req.body, req.user);
         return res.status(200).json({ success: true, message: 'Asset updated', data: asset });
     } catch (err) { return handleError(res, err); }
 };
 
 const deleteAsset = async (req, res) => {
     try {
-        const result = await assetService.deleteAsset(req.params.id);
+        const result = await assetService.deleteAsset(req.params.id, req.user);
         return res.status(200).json({ success: true, ...result });
     } catch (err) { return handleError(res, err); }
 };

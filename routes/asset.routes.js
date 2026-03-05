@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const assetController = require('../controllers/asset.controller');
-
+const authJwt = require('../middlewares/authJwt');
+const requireRoles = require('../middlewares/requireRoles');
+const { ROLES } = require('../constants/roles');
 /**
  * @swagger
  * tags:
@@ -82,7 +84,12 @@ const assetController = require('../controllers/asset.controller');
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/', assetController.getAllAssets);
+router.get(
+    '/',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT),
+    assetController.getAllAssets
+);
 
 /**
  * @swagger
@@ -118,7 +125,12 @@ router.get('/', assetController.getAllAssets);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/:id', assetController.getAssetById);
+router.get(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT),
+    assetController.getAssetById
+);
 
 /**
  * @swagger
@@ -188,7 +200,12 @@ router.get('/:id', assetController.getAssetById);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/', assetController.createAsset);
+router.post(
+    '/',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+    assetController.createAsset
+);
 
 /**
  * @swagger
@@ -245,7 +262,12 @@ router.post('/', assetController.createAsset);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/:id', assetController.updateAsset);
+router.put(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+    assetController.updateAsset
+);
 
 /**
  * @swagger
@@ -287,6 +309,11 @@ router.put('/:id', assetController.updateAsset);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete('/:id', assetController.deleteAsset);
+router.delete(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+    assetController.deleteAsset
+);
 
 module.exports = router;

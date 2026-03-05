@@ -7,14 +7,14 @@ const handleError = (res, err) => {
 
 const getAllUniversities = async (req, res) => {
     try {
-        const result = await universityService.getAllUniversities(req.query);
+        const result = await universityService.getAllUniversities({ ...req.query, user: req.user });
         return res.status(200).json({ success: true, ...result });
     } catch (err) { return handleError(res, err); }
 };
 
 const getUniversityById = async (req, res) => {
     try {
-        const university = await universityService.getUniversityById(req.params.id);
+        const university = await universityService.getUniversityById(req.params.id, req.user);
         return res.status(200).json({ success: true, data: university });
     } catch (err) { return handleError(res, err); }
 };
@@ -57,11 +57,11 @@ const toggleUniversityStatus = async (req, res) => {
     }
 }
 
-module.exports = { 
-    getAllUniversities, 
-    getUniversityById, 
-    createUniversity, 
-    updateUniversity, 
-    deleteUniversity, 
-    toggleUniversityStatus 
+module.exports = {
+    getAllUniversities,
+    getUniversityById,
+    createUniversity,
+    updateUniversity,
+    deleteUniversity,
+    toggleUniversityStatus
 };

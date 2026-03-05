@@ -13,16 +13,16 @@ const assignFacility = async (req, res) => {
     try {
         const { building_id, facility_id } = req.body
         if (!building_id || !facility_id) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Missing building_id or facility_id' 
+            return res.status(400).json({
+                success: false,
+                message: 'Missing building_id or facility_id'
             })
         }
-        const result = await buildingFacilityService.assignFacility(req.body)
-        return res.status(201).json({ 
-            success: true, 
-            message: 'Facility assigned to building successfully', 
-            data: result 
+        const result = await buildingFacilityService.assignFacility(req.body, req.user)
+        return res.status(201).json({
+            success: true,
+            message: 'Facility assigned to building successfully',
+            data: result
         })
     } catch (err) {
         return handleError(res, err)
@@ -37,11 +37,11 @@ const updateStatus = async (req, res) => {
         if (is_active === undefined) {
             return res.status(400).json({ success: false, message: 'is_active field is required' })
         }
-        const result = await buildingFacilityService.updateStatus(req.params.id, is_active)
-        return res.status(200).json({ 
-            success: true, 
-            message: 'Building facility status updated', 
-            data: result 
+        const result = await buildingFacilityService.updateStatus(req.params.id, is_active, req.user)
+        return res.status(200).json({
+            success: true,
+            message: 'Building facility status updated',
+            data: result
         })
     } catch (err) {
         return handleError(res, err)
@@ -51,7 +51,7 @@ const updateStatus = async (req, res) => {
 // DELETE /api/building-facilities/:id
 const removeFacility = async (req, res) => {
     try {
-        const result = await buildingFacilityService.removeFacility(req.params.id)
+        const result = await buildingFacilityService.removeFacility(req.params.id, req.user)
         return res.status(200).json({ success: true, ...result })
     } catch (err) {
         return handleError(res, err)

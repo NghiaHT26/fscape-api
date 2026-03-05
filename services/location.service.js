@@ -4,14 +4,17 @@ const { sequelize } = require('../config/db');
 /**
  * Lấy danh sách địa điểm
  */
-const getAllLocations = async ({ page = 1, limit = 10, search, is_active } = {}) => {
+const getAllLocations = async ({ page = 1, limit = 10, search, is_active, user } = {}) => {
     const { Location, Building, University } = sequelize.models;
 
     const offset = (page - 1) * limit;
     const where = {};
 
     if (search) where.name = { [Op.iLike]: `%${search}%` };
-    if (is_active !== undefined) {
+
+    if (user && ['RESIDENT', 'CUSTOMER'].includes(user.role)) {
+        where.is_active = true;
+    } else if (is_active !== undefined) {
         where.is_active = is_active === 'true' || is_active === true;
     }
 
@@ -39,7 +42,7 @@ const getAllLocations = async ({ page = 1, limit = 10, search, is_active } = {})
 /**
  * Lấy chi tiết 1 địa điểm
  */
-const getLocationById = async (id) => {
+const getLocationById = async (id, user) => {
     const { Location, Building, University } = sequelize.models;
 
     const location = await Location.findByPk(id, {
@@ -50,6 +53,13 @@ const getLocationById = async (id) => {
     });
 
     if (!location) throw { status: 404, message: 'Location not found' };
+
+    if (user && ['RESIDENT', 'CUSTOMER'].includes(user.role)) {
+        if (!location.is_active) {
+            throw { status: 403, message: 'Permission denied: Location is not active' };
+        }
+    }
+
     return location;
 };
 

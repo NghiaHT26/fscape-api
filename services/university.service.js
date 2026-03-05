@@ -6,12 +6,17 @@ const Building = require('../models/building.model');
 /**
  * Lấy danh sách trường đại học kèm phân trang và khu vực
  */
-const getAllUniversities = async ({ page = 1, limit = 10, location_id, is_active, search } = {}) => {
+const getAllUniversities = async ({ page = 1, limit = 10, location_id, is_active, search, user } = {}) => {
     const offset = (page - 1) * limit;
     const where = {};
 
     if (location_id) where.location_id = location_id;
-    if (is_active !== undefined) where.is_active = is_active === 'true' || is_active === true;
+
+    if (user && ['RESIDENT', 'CUSTOMER'].includes(user.role)) {
+        where.is_active = true;
+    } else if (is_active !== undefined) {
+        where.is_active = is_active === 'true' || is_active === true;
+    }
     if (search) where.name = { [Op.iLike]: `%${search}%` };
 
     const { count, rows } = await University.findAndCountAll({
@@ -36,19 +41,25 @@ const getAllUniversities = async ({ page = 1, limit = 10, location_id, is_active
 /**
  * Lấy chi tiết trường đại học và các tòa nhà lân cận (cùng location_id)
  */
-const getUniversityById = async (id) => {
+const getUniversityById = async (id, user) => {
     const university = await University.findByPk(id, {
         include: [
             { model: Location, as: 'location' }
         ]
     });
-    
+
     if (!university) throw { status: 404, message: 'University not found' };
 
+    if (user && ['RESIDENT', 'CUSTOMER'].includes(user.role)) {
+        if (!university.is_active) {
+            throw { status: 403, message: 'Permission denied: University is not active' };
+        }
+    }
+
     const nearbyBuildings = await Building.findAll({
-        where: { 
+        where: {
             location_id: university.location_id,
-            is_active: true 
+            is_active: true
         },
         attributes: ['id', 'name', 'address', 'thumbnail_url', 'latitude', 'longitude']
     });
@@ -82,7 +93,7 @@ const updateUniversity = async (id, data) => {
 const deleteUniversity = async (id) => {
     const university = await University.findByPk(id);
     if (!university) throw { status: 404, message: 'University not found' };
-    
+
     await university.destroy();
     return { message: `University "${university.name}" deleted successfully` };
 };
@@ -97,11 +108,11 @@ const toggleUniversityStatus = async (id) => {
     return university
 }
 
-module.exports = { 
-    getAllUniversities, 
-    getUniversityById, 
-    createUniversity, 
-    updateUniversity, 
+module.exports = {
+    getAllUniversities,
+    getUniversityById,
+    createUniversity,
+    updateUniversity,
     deleteUniversity,
     toggleUniversityStatus
 };

@@ -8,12 +8,21 @@ const Room = require('../models/room.model');
 /**
  * Lấy danh sách tài sản kèm phân trang và lọc theo vị trí/trạng thái
  */
-const getAllAssets = async ({ page = 1, limit = 10, building_id, current_room_id, status, search } = {}) => {
+const getAllAssets = async ({ page = 1, limit = 10, building_id, current_room_id, status, search, user } = {}) => {
     const offset = (page - 1) * limit;
     const where = {};
 
-    if (building_id) where.building_id = building_id;
-    if (current_room_id) where.current_room_id = current_room_id;
+    if (user && ['BUILDING_MANAGER', 'STAFF'].includes(user.role)) {
+        where.building_id = user.building_id;
+    } else if (building_id) {
+        where.building_id = building_id;
+    }
+
+    if (user && user.role === 'RESIDENT') {
+        where.current_room_id = user.room_id;
+    } else if (current_room_id) {
+        where.current_room_id = current_room_id;
+    }
     if (status) where.status = status.toUpperCase();
     if (search) {
         where[Op.or] = [
@@ -42,30 +51,42 @@ const getAllAssets = async ({ page = 1, limit = 10, building_id, current_room_id
     };
 };
 
-const getAssetById = async (id) => {
+const getAssetById = async (id, user) => {
     const asset = await Asset.findByPk(id, {
         include: [
             { model: Building, as: 'building' },
             { model: Room, as: 'room' },
-            { 
-                model: AssetHistory, 
-                as: 'histories', 
-                limit: 10, 
-                order: [['created_at', 'DESC']] 
+            {
+                model: AssetHistory,
+                as: 'histories',
+                limit: 10,
+                order: [['created_at', 'DESC']]
             } // Lấy 10 lịch sử gần nhất
         ]
     });
     if (!asset) throw { status: 404, message: 'Asset not found' };
+
+    if (user && ['BUILDING_MANAGER', 'STAFF'].includes(user.role)) {
+        if (asset.building_id !== user.building_id) throw { status: 403, message: 'Permission denied: Cannot access asset from other building' };
+    }
+    if (user && user.role === 'RESIDENT') {
+        if (asset.current_room_id !== user.room_id) throw { status: 403, message: 'Permission denied: Cannot access asset from other room' };
+    }
+
     return asset;
 };
 
 /**
  * Tạo tài sản mới và ghi nhận lịch sử khởi tạo
  */
-const createAsset = async (data) => {
+const createAsset = async (data, user) => {
     const transaction = await sequelize.transaction();
     try {
         const { qr_code, name, building_id, current_room_id, status } = data;
+
+        if (user && user.role === 'BUILDING_MANAGER' && building_id !== user.building_id) {
+            throw { status: 403, message: 'Permission denied: Cannot create asset for other buildings' };
+        }
 
         // Kiểm tra QR Code duy nhất
         const existing = await Asset.findOne({ where: { qr_code } });
@@ -94,9 +115,16 @@ const createAsset = async (data) => {
 /**
  * Cập nhật tài sản và tự động ghi log nếu có thay đổi vị trí/trạng thái
  */
-const updateAsset = async (id, data, performer_id = null) => {
+const updateAsset = async (id, data, user = null) => {
     const asset = await Asset.findByPk(id);
     if (!asset) throw { status: 404, message: 'Asset not found' };
+
+    if (user && user.role === 'BUILDING_MANAGER') {
+        if (asset.building_id !== user.building_id) throw { status: 403, message: 'Permission denied: Cannot modify asset from other building' };
+        if (data.building_id && data.building_id !== user.building_id) {
+            throw { status: 403, message: 'Permission denied: Cannot move asset to other building' };
+        }
+    }
 
     const transaction = await sequelize.transaction();
     try {
@@ -114,8 +142,8 @@ const updateAsset = async (id, data, performer_id = null) => {
                 from_status: oldStatus,
                 to_status: data.status || oldStatus,
                 action: 'UPDATE_INFO',
-                performed_by: performer_id,
-                notes: data.notes || 'Cập nhật thông tin tài sản từ Admin'
+                performed_by: user ? user.id : null,
+                notes: data.notes || 'Cập nhật thông tin tài sản từ Admin/Manager'
             }, { transaction });
         }
 
@@ -127,10 +155,14 @@ const updateAsset = async (id, data, performer_id = null) => {
     }
 };
 
-const deleteAsset = async (id) => {
+const deleteAsset = async (id, user) => {
     const asset = await Asset.findByPk(id);
     if (!asset) throw { status: 404, message: 'Asset not found' };
-    
+
+    if (user && user.role === 'BUILDING_MANAGER' && asset.building_id !== user.building_id) {
+        throw { status: 403, message: 'Permission denied: Cannot delete asset from other building' };
+    }
+
     // Kiểm tra nếu tài sản đang được sử dụng (IN_USE) thì không cho xóa
     if (asset.status === 'IN_USE') {
         throw { status: 400, message: 'Cannot delete asset currently IN_USE. Move to AVAILABLE first.' };

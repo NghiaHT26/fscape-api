@@ -6,12 +6,13 @@ const locationService = require('../services/location.service');
 const getAllLocations = async (req, res) => {
     try {
         const { page, limit, search, is_active } = req.query;
-        
+
         const result = await locationService.getAllLocations({
             page,
             limit,
             search,
-            is_active
+            is_active,
+            user: req.user
         });
 
         return res.status(200).json({
@@ -34,7 +35,7 @@ const getAllLocations = async (req, res) => {
 const getLocationById = async (req, res) => {
     try {
         const { id } = req.params;
-        const location = await locationService.getLocationById(id);
+        const location = await locationService.getLocationById(id, req.user);
 
         return res.status(200).json({
             success: true,

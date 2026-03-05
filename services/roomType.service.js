@@ -5,7 +5,9 @@ const getAllRoomTypes = async ({
     page = 1,
     limit = 10,
     is_active,
-    search
+    is_active,
+    search,
+    user
 } = {}) => {
 
     const parsedPage = Number(page)
@@ -14,7 +16,9 @@ const getAllRoomTypes = async ({
 
     const where = {}
 
-    if (is_active !== undefined) {
+    if (user && ['RESIDENT', 'CUSTOMER'].includes(user.role)) {
+        where.is_active = true
+    } else if (is_active !== undefined) {
         where.is_active = is_active === 'true' || is_active === true
     }
 
@@ -38,9 +42,16 @@ const getAllRoomTypes = async ({
     }
 }
 
-const getRoomTypeById = async (id) => {
+const getRoomTypeById = async (id, user) => {
     const roomType = await RoomType.findByPk(id)
     if (!roomType) throw { status: 404, message: 'Room type not found' }
+
+    if (user && ['RESIDENT', 'CUSTOMER'].includes(user.role)) {
+        if (!roomType.is_active) {
+            throw { status: 403, message: 'Permission denied: Room type is not active' }
+        }
+    }
+
     return roomType
 }
 

@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const buildingFacilityController = require('../controllers/buildingFacility.controller');
-
+const authJwt = require('../middlewares/authJwt');
+const requireRoles = require('../middlewares/requireRoles');
+const { ROLES } = require('../constants/roles');
 /**
  * @swagger
  * tags:
@@ -65,7 +67,12 @@ const buildingFacilityController = require('../controllers/buildingFacility.cont
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/', buildingFacilityController.assignFacility);
+router.post(
+    '/',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+    buildingFacilityController.assignFacility
+);
 
 /**
  * @swagger
@@ -122,7 +129,12 @@ router.post('/', buildingFacilityController.assignFacility);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/:id', buildingFacilityController.updateStatus);
+router.put(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+    buildingFacilityController.updateStatus
+);
 
 /**
  * @swagger
@@ -159,6 +171,11 @@ router.put('/:id', buildingFacilityController.updateStatus);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete('/:id', buildingFacilityController.removeFacility);
+router.delete(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+    buildingFacilityController.removeFacility
+);
 
 module.exports = router;

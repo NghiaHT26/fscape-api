@@ -9,7 +9,7 @@ const handleError = (res, err) => {
 
 const getAllRoomTypes = async (req, res) => {
     try {
-        const result = await roomTypeService.getAllRoomTypes(req.query)
+        const result = await roomTypeService.getAllRoomTypes({ ...req.query, user: req.user })
         return res.status(200).json({ success: true, ...result })
     } catch (err) {
         return handleError(res, err)
@@ -18,7 +18,7 @@ const getAllRoomTypes = async (req, res) => {
 
 const getRoomTypeById = async (req, res) => {
     try {
-        const data = await roomTypeService.getRoomTypeById(req.params.id)
+        const data = await roomTypeService.getRoomTypeById(req.params.id, req.user)
         return res.status(200).json({ success: true, data })
     } catch (err) {
         return handleError(res, err)

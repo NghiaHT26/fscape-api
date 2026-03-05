@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const contractController = require('../controllers/contract.controller');
-
+const authJwt = require('../middlewares/authJwt');
+const requireRoles = require('../middlewares/requireRoles');
+const { ROLES } = require('../constants/roles');
 /**
  * @swagger
  * tags:
@@ -76,7 +78,12 @@ const contractController = require('../controllers/contract.controller');
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/', contractController.getAllContracts);
+router.get(
+    '/',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT),
+    contractController.getAllContracts
+);
 
 /**
  * @swagger
@@ -112,7 +119,12 @@ router.get('/', contractController.getAllContracts);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/:id', contractController.getContractById);
+router.get(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT),
+    contractController.getContractById
+);
 
 /**
  * @swagger
@@ -194,7 +206,12 @@ router.get('/:id', contractController.getContractById);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/', contractController.createContract);
+router.post(
+    '/',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+    contractController.createContract
+);
 
 /**
  * @swagger
@@ -271,7 +288,12 @@ router.post('/', contractController.createContract);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/:id', contractController.updateContract);
+router.put(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+    contractController.updateContract
+);
 
 /**
  * @swagger
@@ -313,7 +335,12 @@ router.put('/:id', contractController.updateContract);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete('/:id', contractController.deleteContract);
+router.delete(
+    '/:id',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+    contractController.deleteContract
+);
 
 /**
  * @swagger
@@ -359,6 +386,11 @@ router.delete('/:id', contractController.deleteContract);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.patch('/:id/approve', contractController.approveContract);
+router.patch(
+    '/:id/approve',
+    authJwt,
+    requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER),
+    contractController.approveContract
+);
 
 module.exports = router;
