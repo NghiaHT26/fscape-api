@@ -17,6 +17,10 @@ const { ROLES } = require('../constants/roles');
  *   get:
  *     operationId: getAllLocations
  *     summary: Lấy danh sách location (phân trang + lọc)
+ *     description: >
+ *       Required Roles: ADMIN, BUILDING_MANAGER, STAFF, RESIDENT, CUSTOMER
+ *       
+ *       Dữ liệu trả về sẽ được lọc tự động dựa trên quyền hạn của người dùng (Ví dụ: Resident chỉ thấy dữ liệu của mình, Manager thấy trong toà nhà của mình).
  *     tags: [Locations]
  *     parameters:
  *       - in: query
@@ -105,6 +109,10 @@ router.get(
  *   get:
  *     operationId: getLocationById
  *     summary: Lấy chi tiết location theo ID (kèm danh sách buildings và universities)
+ *     description: >
+ *       Required Roles: ADMIN, BUILDING_MANAGER, STAFF, RESIDENT, CUSTOMER
+ *       
+ *       Dữ liệu trả về sẽ được lọc tự động dựa trên quyền hạn của người dùng (Ví dụ: Resident chỉ thấy dữ liệu của mình, Manager thấy trong toà nhà của mình).
  *     tags: [Locations]
  *     parameters:
  *       - in: path
@@ -146,6 +154,7 @@ router.get(
  *   post:
  *     operationId: createLocation
  *     summary: Tạo location mới
+ *     description: "Required Roles: ADMIN"
  *     tags: [Locations]
  *     requestBody:
  *       required: true
@@ -203,6 +212,7 @@ router.post(
  *   put:
  *     operationId: updateLocation
  *     summary: Cập nhật location
+ *     description: "Required Roles: ADMIN"
  *     tags: [Locations]
  *     parameters:
  *       - in: path
@@ -263,6 +273,7 @@ router.put(
  *   delete:
  *     operationId: deleteLocation
  *     summary: Xoá location (thất bại nếu còn building/university liên kết)
+ *     description: "Required Roles: ADMIN"
  *     tags: [Locations]
  *     parameters:
  *       - in: path
@@ -310,6 +321,7 @@ router.delete(
  *   patch:
  *     operationId: toggleLocationStatus
  *     summary: Bật/Tắt trạng thái hoạt động của Location (toggle is_active)
+ *     description: "Required Roles: ADMIN"
  *     tags: [Locations]
  *     parameters:
  *       - in: path

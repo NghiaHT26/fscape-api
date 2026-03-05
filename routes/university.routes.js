@@ -17,6 +17,9 @@ const { ROLES } = require('../constants/roles');
  *   get:
  *     operationId: getAllUniversities
  *     summary: Lấy danh sách trường đại học (phân trang + lọc)
+ *     description: |
+ *       Required Roles: ADMIN, BUILDING_MANAGER, STAFF, RESIDENT, CUSTOMER
+ *       Dữ liệu trả về sẽ được lọc tự động dựa trên quyền hạn của người dùng (Ví dụ: Resident chỉ thấy dữ liệu của mình, Manager thấy trong toà nhà của mình).
  *     tags: [Universities]
  *     parameters:
  *       - in: query
@@ -131,6 +134,8 @@ router.get(
  *   post:
  *     operationId: createUniversity
  *     summary: Tạo trường đại học mới
+ *     description: |
+ *       Required Roles: ADMIN
  *     tags: [Universities]
  *     requestBody:
  *       required: true
@@ -199,6 +204,8 @@ router.post(
  *   put:
  *     operationId: updateUniversity
  *     summary: Cập nhật trường đại học
+ *     description: |
+ *       Required Roles: ADMIN
  *     tags: [Universities]
  *     parameters:
  *       - in: path
