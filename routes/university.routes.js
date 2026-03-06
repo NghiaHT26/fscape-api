@@ -93,6 +93,10 @@ router.get(
  *   get:
  *     operationId: getUniversityById
  *     summary: Lấy chi tiết trường theo ID (kèm nearby_buildings cùng location)
+ *     description: >
+ *       Required Roles: ADMIN, BUILDING_MANAGER, STAFF, RESIDENT, CUSTOMER
+ *       
+ *       Dữ liệu trả về sẽ được lọc tự động dựa trên quyền hạn của người dùng (Ví dụ: Resident chỉ thấy dữ liệu của mình, Manager thấy trong toà nhà của mình).
  *     tags: [Universities]
  *     parameters:
  *       - in: path
@@ -270,6 +274,7 @@ router.put(
  *   delete:
  *     operationId: deleteUniversity
  *     summary: Xoá trường đại học (hard delete)
+ *     description: "Required Roles: ADMIN"
  *     tags: [Universities]
  *     parameters:
  *       - in: path
@@ -311,6 +316,7 @@ router.delete(
  *   patch:
  *     operationId: toggleUniversityStatus
  *     summary: Bật/Tắt trạng thái hoạt động của University (toggle is_active)
+ *     description: "Required Roles: ADMIN"
  *     tags: [Universities]
  *     parameters:
  *       - in: path
