@@ -11,6 +11,8 @@ const { ROLES } = require('../constants/roles');
 const { RENTAL_TERMS } = require('../constants/booking');
 const { SIGNATURE_EXPIRY_MS } = require('../constants/contract');
 const { generateSequentialId } = require('../utils/generateId');
+const { sendContractSigningEmail, sendManagerSigningEmail, sendContractActivatedEmail } = require('../utils/mail.util');
+const { generateContractPdf } = require('../utils/pdf.util');
 const auditService = require('./audit.service');
 
 /* ── helpers ─────────────────────────────────────────────────── */
@@ -74,6 +76,9 @@ const getAllContracts = async ({ page = 1, limit = 10, status, building_id, sear
     }
 
     // BM: force scope to their building
+    if (!isAdmin && !user.building_id) {
+        throw { status: 403, message: 'Building Manager chưa được gán tòa nhà.' };
+    }
     const scopedBuildingId = isAdmin ? building_id : user.building_id;
 
     const include = [
@@ -82,10 +87,11 @@ const getAllContracts = async ({ page = 1, limit = 10, status, building_id, sear
             model: Room,
             as: 'room',
             attributes: ['id', 'room_number'],
+            ...(scopedBuildingId ? { required: true } : {}),
             include: [{
                 model: Building,
                 as: 'building',
-                ...(scopedBuildingId ? { where: { id: scopedBuildingId } } : {})
+                ...(scopedBuildingId ? { where: { id: scopedBuildingId }, required: true } : {})
             }]
         }
     ];
@@ -130,9 +136,12 @@ const getContractById = async (id, user) => {
 
     // BM scope check
     if (user.role === ROLES.BUILDING_MANAGER) {
+        if (!user.building_id) {
+            throw { status: 403, message: 'Building Manager chưa được gán tòa nhà.' };
+        }
         const contractBuildingId = contract.room?.building?.id;
         if (!contractBuildingId || contractBuildingId !== user.building_id) {
-            throw { status: 403, message: 'You do not have access to this contract' };
+            throw { status: 403, message: 'Bạn không có quyền truy cập hợp đồng này (khác tòa nhà).' };
         }
         return stripTimestamps(contract);
     }
@@ -256,7 +265,7 @@ const createContractFromBooking = async (bookingId) => {
 
         // 5. Tính toán dates + term/billing
         const durationMonths = booking.duration_months;
-        const isIndefinite = durationMonths == null;
+        const isIndefinite = durationMonths == null || durationMonths === RENTAL_TERMS.INDEFINITE;
         const startDate = booking.check_in_date;
         const endDate = isIndefinite ? null : addMonths(startDate, durationMonths);
         const termType = isIndefinite ? 'INDEFINITE' : 'FIXED_TERM';
@@ -287,10 +296,11 @@ const createContractFromBooking = async (bookingId) => {
             room_type: roomType?.name || '',
             term_type: isIndefinite ? 'Không thời hạn' : 'Có thời hạn',
             base_rent: formatCurrency(roomType?.base_price || 0),
-            deposit_amount: formatCurrency(booking.deposit_amount),
-            // Signature placeholders — filled when signing
-            manager_signature: '',
-            customer_signature: ''
+            deposit_amount: formatCurrency(booking.deposit_amount)
+            // NOTE: Do NOT include manager_signature / customer_signature here.
+            // The {{customer_signature}} and {{manager_signature}} placeholders
+            // must remain in rendered_content so customerSign / managerSign can
+            // replace them with <img> tags when the parties actually sign.
         };
 
         // 8. Render HTML from template
@@ -320,7 +330,17 @@ const createContractFromBooking = async (bookingId) => {
 
         await transaction.commit();
 
-        // TODO: Send email to customer with contract signing link
+        // Send signing email with direct link
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+        const signingUrl = `${clientUrl}/sign?contractId=${contract.id}`;
+
+        await sendContractSigningEmail(customer.email, {
+            customerName: dynamicFields.customer_name,
+            contractNumber,
+            roomNumber: room.room_number,
+            buildingName: building.name,
+            signingUrl
+        }).catch(err => console.error('[ContractService] Failed to send signing email:', err));
 
         return contract;
 
@@ -367,7 +387,7 @@ const customerSign = async (contractId, signatureUrl, user, req) => {
     const oldStatus = contract.status;
 
     // Update rendered_content: replace customer_signature placeholder with <img>
-    const signatureImg = `<img src="${signatureUrl}" alt="Customer Signature" style="max-height:80px" />`;
+    const signatureImg = `<img src="${signatureUrl}" alt="Customer Signature" style="width:200px;height:80px;object-fit:contain" />`;
     let updatedContent = contract.rendered_content || '';
     updatedContent = updatedContent.replace('{{customer_signature}}', signatureImg);
 
@@ -390,7 +410,24 @@ const customerSign = async (contractId, signatureUrl, user, req) => {
         req
     });
 
-    // TODO: Send email/notification to Building Manager
+    // Send email to Building Manager to sign
+    const manager = await User.findByPk(contract.manager_id);
+    const customer = await User.findByPk(contract.customer_id);
+    if (manager && customer) {
+        const adminUrl = process.env.ADMIN_URL || 'http://localhost:5174';
+        const signingUrl = `${adminUrl}/building-manager/contracts?sign=${contract.id}`;
+        const customerName = `${customer.last_name || ''} ${customer.first_name || ''}`.trim();
+        const managerName = `${manager.last_name || ''} ${manager.first_name || ''}`.trim();
+
+        await sendManagerSigningEmail(manager.email, {
+            managerName,
+            customerName,
+            contractNumber: contract.contract_number,
+            roomNumber: contract.room?.room_number || '',
+            buildingName: contract.room?.building?.name || '',
+            signingUrl
+        }).catch(err => console.error('[ContractService] Failed to send manager signing email:', err));
+    }
 
     return contract;
 };
@@ -440,11 +477,11 @@ const managerSign = async (contractId, signatureUrl, user, req) => {
         const oldStatus = contract.status;
 
         // Update rendered_content: replace manager_signature placeholder with <img>
-        const signatureImg = `<img src="${signatureUrl}" alt="Manager Signature" style="max-height:80px" />`;
+        const signatureImg = `<img src="${signatureUrl}" alt="Manager Signature" style="width:200px;height:80px;object-fit:contain" />`;
         let updatedContent = contract.rendered_content || '';
         updatedContent = updatedContent.replace('{{manager_signature}}', signatureImg);
 
-        // Calculate next_billing_date (1 month from start_date for MONTHLY)
+        // Calculate next_billing_date (1 month from start_date for MONTHLY & UNLIMITED)
         const nextBillingDate = addMonths(contract.start_date, contract.billing_cycle === 'SEMI_ANNUALLY' ? 6 : 1);
 
         // 1. Update contract → ACTIVE
@@ -497,8 +534,26 @@ const managerSign = async (contractId, signatureUrl, user, req) => {
 
         await transaction.commit();
 
-        // TODO: Generate final PDF (Puppeteer) and update contract.pdf_url
-        // TODO: Send email to Resident with contract PDF
+        // Generate final PDF and upload to Cloudinary (async, non-blocking)
+        generateContractPdf(contract.rendered_content, contract.contract_number)
+            .then(async (pdfUrl) => {
+                await Contract.update({ pdf_url: pdfUrl }, { where: { id: contract.id } });
+                console.log(`[ContractService] PDF generated: ${pdfUrl}`);
+            })
+            .catch(err => console.error('[ContractService] Failed to generate PDF:', err));
+
+        // Send activation confirmation email to resident
+        const customerForEmail = await User.findByPk(contract.customer_id);
+        if (customerForEmail) {
+            const customerName = `${customerForEmail.last_name || ''} ${customerForEmail.first_name || ''}`.trim();
+            await sendContractActivatedEmail(customerForEmail.email, {
+                customerName,
+                contractNumber: contract.contract_number,
+                roomNumber: contract.room?.room_number || '',
+                buildingName: contract.room?.building?.name || '',
+                startDate: formatDate(contract.start_date)
+            }).catch(err => console.error('[ContractService] Failed to send activation email:', err));
+        }
 
         return contract;
 
