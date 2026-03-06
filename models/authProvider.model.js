@@ -79,5 +79,10 @@ const AuthProvider = sequelize.define('AuthProvider', {
       },
     ]
   });
-
+AuthProvider.associate = (models) => {
+  AuthProvider.belongsTo(models.User, {
+    foreignKey: 'user_id',
+    as: 'User'
+  });
+};
 module.exports = { AuthProvider };
