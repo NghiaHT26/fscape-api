@@ -6,7 +6,7 @@ const UPLOAD_CATEGORIES = {
     folder: 'buildings/thumbnails',
   },
   building_gallery: {
-    maxFiles: 2,
+    maxFiles: 5,
     maxSize: 5 * 1024 * 1024,
     mimePattern: /^image\//,
     folder: 'buildings/gallery',
@@ -25,9 +25,11 @@ const UPLOAD_CATEGORIES = {
   },
   room_3d: {
     maxFiles: 1,
-    maxSize: 5 * 1024 * 1024,
-    mimePattern: /^image\//,
+    maxSize: 50 * 1024 * 1024,
+    mimePattern: /^(model\/(obj|gltf\+json|gltf-binary)|application\/(octet-stream|gltf|gltf-binary))$/,
     folder: 'rooms/3d',
+    resourceType: 'raw',
+    allowedExtensions: ['.obj', '.gltf', '.glb'],
   },
   room_blueprint: {
     maxFiles: 1,
@@ -46,6 +48,7 @@ const UPLOAD_CATEGORIES = {
     maxSize: 10 * 1024 * 1024,
     mimePattern: /^application\/pdf$/,
     folder: 'contracts/pdfs',
+    resourceType: 'raw',
   },
   request_attachment: {
     maxFiles: 3,

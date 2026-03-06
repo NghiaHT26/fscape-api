@@ -1,3 +1,4 @@
+const path = require('path');
 const Busboy = require('busboy');
 const cloudinary = require('../config/cloudinary');
 const { UPLOAD_CATEGORIES } = require('../constants/upload');
@@ -22,14 +23,18 @@ async function uploadFiles(req, categoryKey) {
     throw err;
   }
 
-  const resourceType = config.mimePattern.test('application/pdf') ? 'raw' : 'image';
+  const resourceType = config.resourceType || 'image';
 
-  const uploads = files.map((file) =>
-    uploadToCloudinary(file.buffer, {
+  const uploads = files.map((file) => {
+    // For raw uploads, preserve original file extension in public_id
+    // so the Cloudinary URL ends with .glb, .gltf, .pdf, etc.
+    const ext = file.filename ? path.extname(file.filename).toLowerCase() : '';
+    return uploadToCloudinary(file.buffer, {
       folder: config.folder,
       resourceType,
-    })
-  );
+      extension: resourceType === 'raw' ? ext : '',
+    });
+  });
 
   return Promise.all(uploads);
 }
@@ -60,7 +65,7 @@ function parseMultipart(req, config) {
     });
 
     busboy.on('file', (fieldname, stream, info) => {
-      const { mimeType } = info;
+      const { mimeType, filename } = info;
 
       if (!config.mimePattern.test(mimeType)) {
         stream.resume(); // drain the stream
@@ -82,7 +87,7 @@ function parseMultipart(req, config) {
 
       stream.on('end', () => {
         if (!finished) {
-          files.push({ buffer: Buffer.concat(chunks), mimeType });
+          files.push({ buffer: Buffer.concat(chunks), mimeType, filename });
         }
       });
     });
@@ -113,10 +118,19 @@ function parseMultipart(req, config) {
  * Upload a buffer to Cloudinary using upload_stream.
  * Returns the secure_url string.
  */
-function uploadToCloudinary(buffer, { folder, resourceType }) {
+function uploadToCloudinary(buffer, { folder, resourceType, extension = '' }) {
   return new Promise((resolve, reject) => {
+    const opts = { folder, resource_type: resourceType };
+
+    // Append extension to public_id so the URL preserves it
+    // e.g. rooms/3d/abc123.glb instead of rooms/3d/abc123
+    if (extension) {
+      const uniqueId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      opts.public_id = `${uniqueId}${extension}`;
+    }
+
     const stream = cloudinary.uploader.upload_stream(
-      { folder, resource_type: resourceType },
+      opts,
       (err, result) => {
         if (err) return reject(err);
         resolve(result.secure_url);
