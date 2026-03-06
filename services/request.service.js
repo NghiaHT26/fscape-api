@@ -9,7 +9,7 @@ const User = require('../models/user.model');
 const Asset = require('../models/asset.model');
 const Building = require('../models/building.model');
 const { ROLES } = require('../constants/roles');
-
+const { createNotification } = require('./notification.service');
 // Helper sinh mã Request tự động (VD: REQ-20260302-001)
 const generateRequestNumber = async () => {
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -149,6 +149,29 @@ const createRequest = async (data) => {
             changed_by: requestData.resident_id,
             reason: 'User created request'
         }, { transaction });
+
+        // 3️ Notify STAFF + MANAGER
+        await createNotification({
+            type: "REQUEST_CREATED",
+            title: "New Service Request",
+            content: `Request ${request.request_number} has been created. Please review and assign to staff.`,
+            target_type: "REQUEST",
+            target_id: request.id,
+            created_by: requestData.resident_id,
+            building_id: requestData.building_id,
+            roles: ["BUILDING_MANAGER"]
+        }, transaction);
+
+        // 4️ Notify Resident (tạo thành công)
+        await createNotification({
+            type: "REQUEST_CREATED_SUCCESS",
+            title: "Request Created",
+            content: `Your request ${request.request_number} has been created successfully`,
+            target_type: "REQUEST",
+            target_id: request.id,
+            created_by: requestData.resident_id,
+            specific_user_ids: [requestData.resident_id]
+        }, transaction);
 
         await transaction.commit();
 
