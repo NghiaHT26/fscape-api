@@ -37,6 +37,11 @@ const Booking = sequelize.define('Booking', {
     type: DataTypes.DATEONLY,
     allowNull: false
   },
+  duration_months: {
+    type: DataTypes.SMALLINT,
+    allowNull: true,
+    defaultValue: null
+  },
   status: {
     type: DataTypes.ENUM("PENDING", "DEPOSIT_PAID", "CONVERTED", "CANCELLED"),
     allowNull: true,

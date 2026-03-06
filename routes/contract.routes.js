@@ -13,16 +13,19 @@ router.get('/', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), contractContr
 // My contracts — RESIDENT / CUSTOMER
 router.get('/my', requireRoles(ROLES.RESIDENT, ROLES.CUSTOMER), contractController.getMyContracts);
 
-// Contract detail — ADMIN / BM / RESIDENT (owner)
-router.get('/:id', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.RESIDENT), contractController.getContractById);
+// Contract detail — ADMIN / BM / RESIDENT / CUSTOMER
+router.get('/:id', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.RESIDENT, ROLES.CUSTOMER), contractController.getContractById);
 
-// No POST — contracts are created internally by the system (via booking flow)
+// No POST — contracts are created internally by the system (via booking/payment flow)
 // No DELETE — contracts cannot be deleted
 
 // Update contract — ADMIN / BM (extend duration, adjust end_date, etc.)
 router.put('/:id', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), contractController.updateContract);
 
-// Approve contract — ADMIN / BM
-router.patch('/:id/approve', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), contractController.approveContract);
+// Customer/Resident signs contract (PENDING_CUSTOMER_SIGNATURE → PENDING_MANAGER_SIGNATURE)
+router.patch('/:id/sign', requireRoles(ROLES.RESIDENT, ROLES.CUSTOMER), contractController.customerSign);
+
+// Building Manager signs contract (PENDING_MANAGER_SIGNATURE → ACTIVE)
+router.patch('/:id/manager-sign', requireRoles(ROLES.BUILDING_MANAGER), contractController.managerSign);
 
 module.exports = router;

@@ -1,5 +1,6 @@
 const { sequelize } = require('../config/db');
-const { v4: uuidv4 } = require('uuid');
+const { DEPOSIT_MONTHS, DEFAULT_DEPOSIT_MONTHS, BOOKING_EXPIRY_MS } = require('../constants/booking');
+const { generateNumberedId } = require('../utils/generateId');
 
 const createBooking = async (userId, bookingData) => {
     const { Booking, Room, RoomType, User, CustomerProfile } = sequelize.models;
@@ -23,14 +24,14 @@ const createBooking = async (userId, bookingData) => {
             throw { status: 400, message: 'Phòng này hiện không còn trống.' };
         }
 
-        // 2. Tính toán tiền cọc (mặc định 1 tháng tiền phòng)
+        // 2. Tính tiền cọc
+        // rentalTerm: 1 (1 tháng), 6 (6 tháng), null (vô hạn)
+        // 6 tháng → cọc 6 tháng, còn lại → cọc 1 tháng
         const basePrice = Number(room.room_type?.base_price || 0);
-        const depositAmount = basePrice; // Có thể tùy chỉnh logic tính cọc ở đây
+        const depositMonths = DEPOSIT_MONTHS[rentalTerm] ?? DEFAULT_DEPOSIT_MONTHS;
+        const depositAmount = basePrice * depositMonths;
 
-        // 3. Tạo booking number ngẫu nhiên
-        const bookingNumber = `BK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-        // 4. Lưu thông tin hồ sơ khách hàng (CustomerProfile)
+        // 3. Lưu thông tin hồ sơ khách hàng (CustomerProfile)
         const [profile, created] = await CustomerProfile.findOrCreate({
             where: { user_id: userId },
             defaults: {
@@ -53,22 +54,21 @@ const createBooking = async (userId, bookingData) => {
             }, { transaction });
         }
 
-        // 5. Tạo bản ghi Booking
+        // 4. Tạo Booking
         const booking = await Booking.create({
-            booking_number: bookingNumber,
+            booking_number: generateNumberedId('BK'),
             room_id: roomId,
             customer_id: userId,
             check_in_date: checkInDate,
+            duration_months: rentalTerm,
             status: 'PENDING',
             room_price_snapshot: basePrice,
             deposit_amount: depositAmount,
-            notes: `Rental term: ${rentalTerm} months`,
-            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000) // Hết hạn sau 24h nếu không thanh toán
+            expires_at: new Date(Date.now() + BOOKING_EXPIRY_MS)
         }, { transaction });
 
-        // 6. Cập nhật trạng thái phòng thành LOCKED để giữ chỗ (tùy policy)
-        // room.status = 'LOCKED';
-        // await room.save({ transaction });
+        // 5. Giữ chỗ phòng
+        await room.update({ status: 'LOCKED' }, { transaction });
 
         await transaction.commit();
         return booking;

@@ -103,6 +103,10 @@ const Contract = sequelize.define('Contract', {
     type: DataTypes.DATE,
     allowNull: true
   },
+  signature_expires_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
   rendered_content: {
     type: DataTypes.TEXT,
     allowNull: true
