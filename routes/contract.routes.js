@@ -2,19 +2,27 @@ const express = require('express');
 const router = express.Router();
 const contractController = require('../controllers/contract.controller');
 const authJwt = require('../middlewares/authJwt');
+const requireRoles = require('../middlewares/requireRoles');
+const { ROLES } = require('../constants/roles');
 
-router.get('/', contractController.getAllContracts);
+router.use(authJwt);
 
-router.get('/my', authJwt, contractController.getMyContracts);
+// List all contracts — ADMIN (full + timestamps), BM (scoped to building, no timestamps)
+router.get('/', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), contractController.getAllContracts);
 
-router.get('/:id', contractController.getContractById);
+// My contracts — RESIDENT / CUSTOMER
+router.get('/my', requireRoles(ROLES.RESIDENT, ROLES.CUSTOMER), contractController.getMyContracts);
 
-router.post('/', contractController.createContract);
+// Contract detail — ADMIN / BM / RESIDENT (owner)
+router.get('/:id', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.RESIDENT), contractController.getContractById);
 
-router.put('/:id', contractController.updateContract);
+// No POST — contracts are created internally by the system (via booking flow)
+// No DELETE — contracts cannot be deleted
 
-router.delete('/:id', contractController.deleteContract);
+// Update contract — ADMIN / BM (extend duration, adjust end_date, etc.)
+router.put('/:id', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), contractController.updateContract);
 
-router.patch('/:id/approve', authJwt, contractController.approveContract);
+// Approve contract — ADMIN / BM
+router.patch('/:id/approve', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), contractController.approveContract);
 
 module.exports = router;

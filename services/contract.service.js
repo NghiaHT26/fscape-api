@@ -4,13 +4,33 @@ const User = require('../models/user.model');
 const Room = require('../models/room.model');
 const Building = require('../models/building.model');
 const ContractTemplate = require('../models/contractTemplate.model');
+const { ROLES } = require('../constants/roles');
+
+/* ── helpers ─────────────────────────────────────────────────── */
+
+const TIMESTAMP_FIELDS = ['created_at', 'updated_at', 'createdAt', 'updatedAt'];
 
 /**
- * Lấy danh sách hợp đồng cho Admin (kèm bộ lọc trạng thái và tòa nhà)
+ * Strip timestamps from a Sequelize instance plain object.
  */
-const getAllContracts = async ({ page = 1, limit = 10, status, building_id, search } = {}) => {
+const stripTimestamps = (obj) => {
+    if (!obj) return obj;
+    const plain = typeof obj.toJSON === 'function' ? obj.toJSON() : { ...obj };
+    TIMESTAMP_FIELDS.forEach(f => delete plain[f]);
+    return plain;
+};
+
+/* ── queries ─────────────────────────────────────────────────── */
+
+/**
+ * Lấy danh sách hợp đồng.
+ * - ADMIN: xem tất cả, bao gồm timestamps.
+ * - BUILDING_MANAGER: chỉ xem hợp đồng trong tòa nhà mình, ẩn timestamps.
+ */
+const getAllContracts = async ({ page = 1, limit = 10, status, building_id, search } = {}, user) => {
     const offset = (page - 1) * limit;
     const where = {};
+    const isAdmin = user.role === ROLES.ADMIN;
 
     if (status) where.status = status;
     if (search) {
@@ -19,13 +39,20 @@ const getAllContracts = async ({ page = 1, limit = 10, status, building_id, sear
         ];
     }
 
+    // BM: force scope to their building
+    const scopedBuildingId = isAdmin ? building_id : user.building_id;
+
     const include = [
         { model: User, as: 'customer', attributes: ['id', 'first_name', 'last_name', 'email'] },
         {
             model: Room,
             as: 'room',
             attributes: ['id', 'room_number'],
-            include: building_id ? [{ model: Building, as: 'building', where: { id: building_id } }] : []
+            include: [{
+                model: Building,
+                as: 'building',
+                ...(scopedBuildingId ? { where: { id: scopedBuildingId } } : {})
+            }]
         }
     ];
 
@@ -42,11 +69,17 @@ const getAllContracts = async ({ page = 1, limit = 10, status, building_id, sear
         page: Number(page),
         limit: Number(limit),
         totalPages: Math.ceil(count / limit),
-        data: rows
+        data: isAdmin ? rows : rows.map(stripTimestamps)
     };
 };
 
-const getContractById = async (id) => {
+/**
+ * Chi tiết hợp đồng.
+ * - ADMIN: đầy đủ.
+ * - BUILDING_MANAGER: chỉ xem nếu thuộc building mình, ẩn timestamps.
+ * - RESIDENT: chỉ xem hợp đồng của mình.
+ */
+const getContractById = async (id, user) => {
     const contract = await Contract.findByPk(id, {
         include: [
             { model: User, as: 'customer' },
@@ -60,6 +93,23 @@ const getContractById = async (id) => {
         ]
     });
     if (!contract) throw { status: 404, message: 'Contract not found' };
+
+    // BM scope check
+    if (user.role === ROLES.BUILDING_MANAGER) {
+        const contractBuildingId = contract.room?.building?.id;
+        if (!contractBuildingId || contractBuildingId !== user.building_id) {
+            throw { status: 403, message: 'You do not have access to this contract' };
+        }
+        return stripTimestamps(contract);
+    }
+
+    // RESIDENT: only own contracts
+    if (user.role === ROLES.RESIDENT || user.role === ROLES.CUSTOMER) {
+        if (contract.customer_id !== user.id) {
+            throw { status: 403, message: 'You do not have access to this contract' };
+        }
+    }
+
     return contract;
 };
 
@@ -70,12 +120,8 @@ const updateContractStatus = async (id, status, manager_id = null) => {
     const contract = await Contract.findByPk(id);
     if (!contract) throw { status: 404, message: 'Contract not found' };
 
-    // Logic đặc biệt khi hợp đồng bắt đầu có hiệu lực
     if (status === 'ACTIVE') {
-        // Tự động gán manager phê duyệt nếu chưa có
         if (manager_id) contract.manager_id = manager_id;
-
-        // Cập nhật trạng thái phòng sang OCCUPIED
         const room = await Room.findByPk(contract.room_id);
         if (room) await room.update({ status: 'OCCUPIED' });
     }
@@ -84,18 +130,16 @@ const updateContractStatus = async (id, status, manager_id = null) => {
 };
 
 /**
- * Tạo hợp đồng mới từ Admin (Dành cho trường hợp Manager tạo hộ Resident)
+ * Tạo hợp đồng (hệ thống gọi nội bộ — không expose qua route)
  */
 const createContract = async (data) => {
-    const { room_id, customer_id, start_date, end_date } = data;
+    const { room_id } = data;
 
-    // 1. Kiểm tra phòng có đang trống không
     const room = await Room.findByPk(room_id);
     if (!room || room.status !== 'AVAILABLE') {
         throw { status: 400, message: 'Room is not available for booking' };
     }
 
-    // 2. Tạo số hợp đồng tự động (Ví dụ: CON-2026-XXXX)
     const count = await Contract.count() + 1;
     const contract_number = `CON-${new Date().getFullYear()}-${count.toString().padStart(4, '0')}`;
 
@@ -107,36 +151,33 @@ const createContract = async (data) => {
 };
 
 /**
- * Cập nhật thông tin hợp đồng (Khi còn ở dạng DRAFT hoặc PENDING)
+ * Cập nhật thông tin hợp đồng (gia hạn, dời end_date, ...)
+ * - ADMIN: update bất kì hợp đồng nào.
+ * - BUILDING_MANAGER: chỉ update hợp đồng trong tòa nhà mình.
  */
-const updateContract = async (id, data) => {
-    const contract = await Contract.findByPk(id);
+const updateContract = async (id, data, user) => {
+    const contract = await Contract.findByPk(id, {
+        include: [{
+            model: Room,
+            as: 'room',
+            include: [{ model: Building, as: 'building' }]
+        }]
+    });
     if (!contract) throw { status: 404, message: 'Contract not found' };
 
-    if (['ACTIVE', 'FINISHED'].includes(contract.status)) {
-        throw { status: 400, message: 'Cannot edit an active or finished contract' };
+    // BM scope check
+    if (user.role === ROLES.BUILDING_MANAGER) {
+        const contractBuildingId = contract.room?.building?.id;
+        if (!contractBuildingId || contractBuildingId !== user.building_id) {
+            throw { status: 403, message: 'You do not have permission to edit this contract' };
+        }
     }
 
     return await contract.update(data);
 };
 
 /**
- * Xóa hợp đồng (Chỉ cho phép nếu là bản nháp)
- */
-const deleteContract = async (id) => {
-    const contract = await Contract.findByPk(id);
-    if (!contract) throw { status: 404, message: 'Contract not found' };
-
-    if (contract.status !== 'DRAFT') {
-        throw { status: 400, message: 'Only draft contracts can be deleted' };
-    }
-
-    await contract.destroy();
-    return { message: 'Contract deleted successfully' };
-};
-
-/**
- * Lấy danh sách hợp đồng của tôi (dành cho Resident/Customer)
+ * Lấy danh sách hợp đồng của tôi (RESIDENT / CUSTOMER)
  */
 const getMyContracts = async (userId) => {
     return await Contract.findAll({
@@ -153,4 +194,11 @@ const getMyContracts = async (userId) => {
     });
 };
 
-module.exports = { getAllContracts, getContractById, getMyContracts, updateContractStatus, createContract, updateContract, deleteContract };
+module.exports = {
+    getAllContracts,
+    getContractById,
+    getMyContracts,
+    updateContractStatus,
+    createContract,
+    updateContract
+};
