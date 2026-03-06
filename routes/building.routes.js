@@ -9,6 +9,12 @@ const { ROLES } = require('../constants/roles');
 
 router.get('/', authJwtOptional, buildingController.getAllBuildings);
 
+router.get(
+  "/:buildingId/staffs",
+
+  buildingController.getStaffsInBuilding
+);
+
 router.get('/:id', authJwtOptional, buildingController.getBuildingById);
 
 router.post(

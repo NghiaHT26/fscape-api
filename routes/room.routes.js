@@ -9,6 +9,12 @@ const { ROLES } = require('../constants/roles');
 
 router.get('/', authJwtOptional, roomController.getAllRooms);
 
+router.get("/:buildingId",
+  authJwt,
+  requireRoles(ROLES.BUILDING_MANAGER),
+  roomController.getRoomsByBuilding
+);
+
 router.get('/:id', authJwtOptional, roomController.getRoomById);
 
 router.post('/', authJwt, requireAdmin, roomController.createRoom);

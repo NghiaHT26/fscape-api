@@ -143,11 +143,25 @@ const toggleBuildingStatus = async (req, res) => {
     }
 }
 
+const getStaffsInBuilding = async (req, res) => {
+  try {
+    const { buildingId } = req.params;
+
+    const staffs = await buildingService.getStaffsByBuilding(buildingId);
+
+    return res.json(staffs);
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message
+    });
+  }
+};
 module.exports = {
     getAllBuildings,
     getBuildingById,
     createBuilding,
     updateBuilding,
     deleteBuilding,
-    toggleBuildingStatus
+    toggleBuildingStatus,
+    getStaffsInBuilding
 };

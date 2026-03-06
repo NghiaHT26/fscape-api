@@ -89,11 +89,32 @@ const toggleRoomStatus = async (req, res) => {
     }
 };
 
+const getRoomsByBuilding = async (req, res, next) => {
+  try {
+
+    const { buildingId } = req.params;
+
+    const rooms = await roomService.getRoomsByBuilding(
+      buildingId,
+      req.query,
+      req.user
+    );
+
+    res.json({
+      success: true,
+      data: rooms
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
 module.exports = {
     getAllRooms,
     getRoomById,
     createRoom,
     updateRoom,
     deleteRoom,
-    toggleRoomStatus
+    toggleRoomStatus,
+    getRoomsByBuilding
 };

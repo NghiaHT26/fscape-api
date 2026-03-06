@@ -337,11 +337,80 @@ const toggleRoomStatus = async (id, targetStatus, user) => {
   return room;
 };
 
+const getRoomsByBuilding = async (buildingId, query = {}, user = {}) => {
+
+  const { status, floor, search } = query;
+
+  const where = {
+    building_id: buildingId
+  };
+
+  if (status) where.status = status;
+  if (floor !== undefined) where.floor = floor;
+  if (search) where.room_number = { [Op.iLike]: `%${search}%` };
+
+  // Building-scoped access
+  if (
+    (user.role === ROLES.BUILDING_MANAGER || user.role === ROLES.STAFF) &&
+    user.building_id !== buildingId
+  ) {
+    throw { status: 403, message: 'You can only view rooms in your assigned building' };
+  }
+
+  const rooms = await Room.findAll({
+    where,
+    include: [
+      {
+        model: RoomType,
+        as: 'room_type',
+        attributes: [
+          'id',
+          'name',
+          'base_price',
+          'capacity_min',
+          'capacity_max',
+          'area_sqm'
+        ]
+      },
+      {
+        model: RoomImage,
+        as: 'images',
+        attributes: ['image_url']
+      }
+    ],
+    order: [
+      ['floor', 'ASC'],
+      ['room_number', 'ASC']
+    ]
+  });
+
+  let data = rooms.map(r => r.toJSON());
+
+  // Strip timestamps for non-admin
+  if (user.role !== ROLES.ADMIN) {
+    data = data.map(room => {
+      for (const field of TIMESTAMP_FIELDS) delete room[field];
+      return room;
+    });
+  }
+
+  // Convert images → array of urls
+  data = data.map(room => {
+    if (room.images) {
+      room.images = room.images.map(img => img.image_url);
+    }
+    return room;
+  });
+
+  return data;
+};
+
 module.exports = {
   getAllRooms,
   getRoomById,
   createRoom,
   updateRoom,
   deleteRoom,
-  toggleRoomStatus
+  toggleRoomStatus,
+  getRoomsByBuilding
 };

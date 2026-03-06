@@ -19,6 +19,7 @@ app.use('/api/assets', require('./routes/asset.routes'))
 app.use('/api/locations', require('./routes/location.routes'));     //
 app.use('/api/universities', require('./routes/university.routes')); //
 app.use('/api/buildings', require('./routes/building.routes'));      //
+app.use('/api/buildings/rooms', require('./routes/room.routes'));      //
 app.use('/api/facilities', require('./routes/facility.routes'));     //
 app.use('/api/requests', require('./routes/request.routes'));
 app.use('/api/auth/internal', require('./routes/internalAuth.route'));

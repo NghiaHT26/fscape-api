@@ -245,11 +245,32 @@ const toggleBuildingStatus = async (id, isActive, user) => {
     return building
 }
 
+const getStaffsByBuilding = async (buildingId) => {
+  return await User.findAll({
+    where: {
+      building_id: buildingId,
+      role: "STAFF",
+      is_active: true
+    },
+    attributes: [
+      "id",
+      "email",
+      "first_name",
+      "last_name",
+      "phone",
+      "avatar_url",
+      "is_active"
+    ],
+    order: [["created_at", "DESC"]]
+  });
+};
+
 module.exports = {
     getAllBuildings,
     getBuildingById,
     createBuilding,
     updateBuilding,
     deleteBuilding,
-    toggleBuildingStatus
+    toggleBuildingStatus,
+    getStaffsByBuilding
 };
