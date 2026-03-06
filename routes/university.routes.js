@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const universityController = require('../controllers/university.controller');
-const authJwt = require('../middlewares/authJwt');
-const requireAdmin = require('../middlewares/requireAdmin');
 
 router.get('/', universityController.getAllUniversities);
 

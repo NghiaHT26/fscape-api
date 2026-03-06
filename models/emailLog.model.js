@@ -1,5 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const EmailTemplate = require('./emailTemplate.model');
+const User = require('./user.model');
 
 const EmailLog = sequelize.define('EmailLog', {
     id: {

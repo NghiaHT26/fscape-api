@@ -1,5 +1,9 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const Location = require('./location.model');
+const BuildingImage = require('./buildingImage.model');
+const Facility = require('./facility.model');
+const BuildingFacility = require('./buildingFacility.model');
 
 const Building = sequelize.define('Building', {
   id: {
@@ -11,9 +15,9 @@ const Building = sequelize.define('Building', {
   location_id: {
     type: DataTypes.UUID,
     allowNull: false,
-    references: {
+    references: { 
       model: 'locations',
-      key: 'id'
+      key: 'id' 
     }
   },
   name: {
@@ -89,10 +93,10 @@ Building.associate = (models) => {
     as: 'location'
   });
 
-  Building.hasMany(models.BuildingImage, {
-    foreignKey: 'building_id',
-    as: 'images'
-  });
+Building.hasMany(BuildingImage, {
+  foreignKey: 'building_id',
+  as: 'images'
+});
 
   Building.belongsToMany(models.Facility, {
     through: models.BuildingFacility,

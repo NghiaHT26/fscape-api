@@ -44,9 +44,9 @@ const getAllContracts = async ({ page = 1, limit = 10, status, building_id, sear
 
     const include = [
         { model: User, as: 'customer', attributes: ['id', 'first_name', 'last_name', 'email'] },
-        {
-            model: Room,
-            as: 'room',
+        { 
+            model: Room, 
+            as: 'room', 
             attributes: ['id', 'room_number'],
             include: [{
                 model: Building,
@@ -84,10 +84,10 @@ const getContractById = async (id, user) => {
         include: [
             { model: User, as: 'customer' },
             { model: User, as: 'manager' },
-            {
-                model: Room,
-                as: 'room',
-                include: [{ model: Building, as: 'building' }]
+            { 
+                model: Room, 
+                as: 'room', 
+                include: [{ model: Building, as: 'building' }] 
             },
             { model: ContractTemplate, as: 'template' }
         ]

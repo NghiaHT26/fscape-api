@@ -1,5 +1,9 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const Room = require('./room.model');
+const User = require('./user.model');
+const Contract = require('./contract.model');
+const Payment = require('./payment.model');
 
 const Booking = sequelize.define('Booking', {
   id: {

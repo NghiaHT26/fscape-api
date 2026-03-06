@@ -1,5 +1,8 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const User = require('./user.model');
+const Room = require('./room.model');
+const ContractTemplate = require('./contractTemplate.model');
 
 const Contract = sequelize.define('Contract', {
   id: {

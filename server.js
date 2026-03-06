@@ -1,6 +1,4 @@
-require('dotenv').config({
-    path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env'
-});
+require('dotenv').config();
 const app = require('./app');
 const { connectDB, sequelize } = require('./config/db');
 
@@ -55,7 +53,7 @@ require('./models/scheduledJob.model');
 require('./models/emailTemplate.model');
 require('./models/emailLog.model');
 
-const models = sequelize.models;
+const models = sequelize.models; 
 
 Object.keys(models).forEach((modelName) => {
     if (models[modelName].associate) {
