@@ -1,13 +1,20 @@
 const { Op } = require('sequelize')
 const Facility = require('../models/facility.model')
 const Building = require('../models/building.model')
+const BuildingFacility = require('../models/buildingFacility.model')
 
-const getAllFacilities = async ({ page = 1, limit = 10, search, is_active, building_id } = {}) => {
+const getAllFacilities = async ({ page = 1, limit = 10, search, is_active, building_id } = {}, user) => {
     const offset = (page - 1) * limit
     const where = {}
+    const userRole = user?.role || 'PUBLIC'
 
     if (search) where.name = { [Op.iLike]: `%${search}%` }
     if (is_active !== undefined) where.is_active = is_active === 'true' || is_active === true
+
+    let attributes = undefined
+    if (userRole !== 'ADMIN') {
+        attributes = { exclude: ['createdAt', 'updatedAt'] }
+    }
 
     const include = []
     if (building_id) {
@@ -22,6 +29,7 @@ const getAllFacilities = async ({ page = 1, limit = 10, search, is_active, build
 
     const { count, rows } = await Facility.findAndCountAll({
         where,
+        attributes,
         include,
         distinct: true,
         limit: Number(limit),
@@ -53,7 +61,7 @@ const getFacilityById = async (id) => {
 }
 
 const createFacility = async (data) => {
-    const { name, description, is_active, image_url } = data;
+    const { name, is_active } = data;
 
     // Check duplicate name
     const duplicate = await Facility.findOne({ where: { name } });
@@ -61,9 +69,7 @@ const createFacility = async (data) => {
 
     const facility = await Facility.create({
         name,
-        description,
-        is_active,
-        image_url
+        is_active
     });
 
     return facility;
@@ -87,6 +93,11 @@ const updateFacility = async (id, data) => {
 const deleteFacility = async (id) => {
     const facility = await Facility.findByPk(id)
     if (!facility) throw { status: 404, message: 'Facility not found' }
+
+    const linkedBuildingsCount = await BuildingFacility.count({ where: { facility_id: id } });
+    if (linkedBuildingsCount > 0) {
+        throw { status: 400, message: `Facility cannot be deleted because it is assigned to ${linkedBuildingsCount} building(s).` };
+    }
 
     await facility.destroy()
     return { message: `Facility "${facility.name}" deleted successfully` }

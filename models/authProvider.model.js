@@ -1,53 +1,83 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-const User = require('./user.model');
-const PROVIDER_TYPE = ['EMAIL', 'GOOGLE']; 
 
-const AuthProvider = sequelize.define(
-  "AuthProvider",
-  {
+const AuthProvider = sequelize.define('AuthProvider', {
     id: {
       type: DataTypes.UUID,
+      allowNull: false,
       defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
+      primaryKey: true
     },
-
     user_id: {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
         model: 'users',
         key: 'id'
-      }
+      },
+      unique: "auth_providers_user_id_provider_key"
     },
-
     provider: {
-      type: DataTypes.ENUM('EMAIL', 'GOOGLE'),
+      type: DataTypes.ENUM("EMAIL","GOOGLE"),
       allowNull: false,
+      unique: "auth_providers_user_id_provider_key"
     },
-
     provider_id: {
       type: DataTypes.STRING(255),
       allowNull: false,
+      unique: "auth_providers_provider_provider_id_key"
     },
-
     password_hash: {
       type: DataTypes.STRING(255),
-      allowNull: true,
+      allowNull: true
     },
-
     is_verified: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false,
-    },
-  },
-  {
-    tableName: "auth_providers",
-    underscored: true,
+      allowNull: true,
+      defaultValue: false
+    }
+  }, {
+    tableName: 'auth_providers',
+    schema: 'public',
     timestamps: true,
-  }
-);
-AuthProvider.belongsTo(User, {
-  foreignKey: 'user_id',
-});
-module.exports = { AuthProvider, PROVIDER_TYPE };
+    underscored: true,
+    indexes: [
+      {
+        name: "auth_providers_pkey",
+        unique: true,
+        fields: [
+          { name: "id" },
+        ]
+      },
+      {
+        name: "auth_providers_provider_provider_id_key",
+        unique: true,
+        fields: [
+          { name: "provider" },
+          { name: "provider_id" },
+        ]
+      },
+      {
+        name: "auth_providers_user_id_provider_key",
+        unique: true,
+        fields: [
+          { name: "user_id" },
+          { name: "provider" },
+        ]
+      },
+      {
+        name: "idx_auth_providers_lookup",
+        fields: [
+          { name: "provider" },
+          { name: "provider_id" },
+        ]
+      }, {
+        name: "idx_auth_providers_user_id",
+        fields: [
+          { name: "user_id" },
+        ]
+      },
+    ]
+  });
+
+module.exports = { AuthProvider };

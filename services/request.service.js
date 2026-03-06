@@ -7,6 +7,8 @@ const notificationService = require('./notification.service');
 const Room = require('../models/room.model');
 const User = require('../models/user.model');
 const Asset = require('../models/asset.model');
+const Building = require('../models/building.model');
+const { ROLES } = require('../constants/roles');
 
 // Helper sinh mã Request tự động (VD: REQ-20260302-001)
 const generateRequestNumber = async () => {
@@ -23,25 +25,49 @@ const generateRequestNumber = async () => {
     return `REQ-${dateStr}-${nextId}`;
 };
 
-const getAllRequests = async ({ page = 1, limit = 10, status, request_type, room_id, assigned_staff_id } = {}) => {
+const getAllRequests = async (caller, { page = 1, limit = 10, status, request_type, room_id, assigned_staff_id, search } = {}) => {
     const offset = (page - 1) * limit;
     const where = {};
+    const roomInclude = {
+        model: Room,
+        as: 'room',
+        attributes: ['id', 'room_number', 'floor', 'building_id']
+    };
 
     if (status) where.status = status;
     if (request_type) where.request_type = request_type;
     if (room_id) where.room_id = room_id;
     if (assigned_staff_id) where.assigned_staff_id = assigned_staff_id;
 
+    // Search by title or request_number
+    if (search) {
+        where[Op.or] = [
+            { title: { [Op.iLike]: `%${search}%` } },
+            { request_number: { [Op.iLike]: `%${search}%` } },
+        ];
+    }
+
+    if (caller.role === ROLES.BUILDING_MANAGER) {
+        if (!caller.building_id) throw new Error('Building manager is not assigned to any building');
+        roomInclude.where = { building_id: caller.building_id };
+        roomInclude.required = true;
+    } else if (caller.role === ROLES.STAFF) {
+        where.assigned_staff_id = caller.id;
+    } else if (caller.role === ROLES.RESIDENT) {
+        where.resident_id = caller.id;
+    }
+    // ADMIN sees all — no extra filter
+
     const { count, rows } = await Request.findAndCountAll({
         where,
         include: [
-            { model: Room, as: 'room', attributes: ['id', 'room_number'] },
+            roomInclude,
             { model: User, as: 'resident', attributes: ['id', 'first_name', 'last_name', 'email'] },
             { model: User, as: 'staff', attributes: ['id', 'first_name', 'last_name'] }
         ],
         limit: Number(limit),
         offset: Number(offset),
-        order: [['created_at', 'DESC']]
+        order: [['createdAt', 'DESC']]
     });
 
     return {
@@ -53,24 +79,44 @@ const getAllRequests = async ({ page = 1, limit = 10, status, request_type, room
     };
 };
 
-const getRequestById = async (id) => {
+const getRequestById = async (caller, id) => {
     const request = await Request.findByPk(id, {
         include: [
-            { model: Room, as: 'room', attributes: ['id', 'room_number', 'floor'] },
+            {
+                model: Room, as: 'room',
+                attributes: ['id', 'room_number', 'floor', 'building_id'],
+                include: [{ model: Building, as: 'building', attributes: ['id', 'name'] }],
+            },
             { model: User, as: 'resident', attributes: ['id', 'first_name', 'last_name', 'phone', 'email'] },
             { model: User, as: 'staff', attributes: ['id', 'first_name', 'last_name', 'phone'] },
-            { model: Asset, as: 'asset', attributes: ['id', 'name', 'qr_code'] },
+            { model: Asset, as: 'asset', attributes: ['id', 'qr_code'] },
             { model: RequestImage, as: 'images' },
             {
                 model: RequestStatusHistory,
                 as: 'status_history',
                 include: [{ model: User, as: 'modifier', attributes: ['id', 'first_name', 'last_name', 'role'] }],
-                order: [['created_at', 'DESC']]
+                order: [['createdAt', 'DESC']]
             }
         ]
     });
 
     if (!request) throw { status: 404, message: 'Request not found' };
+
+    // Access check
+    if (caller.role === ROLES.BUILDING_MANAGER) {
+        if (request.room?.building_id !== caller.building_id) {
+            throw { status: 403, message: 'Permission denied' };
+        }
+    } else if (caller.role === ROLES.STAFF) {
+        if (request.assigned_staff_id !== caller.id) {
+            throw { status: 403, message: 'Permission denied' };
+        }
+    } else if (caller.role === ROLES.RESIDENT) {
+        if (request.resident_id !== caller.id) {
+            throw { status: 403, message: 'Permission denied' };
+        }
+    }
+
     return request;
 };
 
@@ -106,9 +152,7 @@ const createRequest = async (data) => {
 
         await transaction.commit();
 
-        // [TODO] Có thể gọi NotificationService bắn thông báo cho Manager ở đây
-
-        return getRequestById(request.id);
+        return getRequestById({ role: ROLES.ADMIN }, request.id);
     } catch (error) {
         await transaction.rollback();
         throw error;
@@ -150,7 +194,7 @@ const assignRequest = async (id, staff_id, manager_id) => {
             created_by: manager_id
         });
 
-        return getRequestById(id);
+        return getRequestById({ role: ROLES.ADMIN }, id);
     } catch (error) {
         await transaction.rollback();
         throw error;
@@ -232,7 +276,7 @@ const updateRequestStatus = async (id, updateData) => {
             created_by: changed_by
         });
 
-        return getRequestById(id);
+        return getRequestById({ role: ROLES.ADMIN }, id);
     } catch (error) {
         await transaction.rollback();
         throw error;

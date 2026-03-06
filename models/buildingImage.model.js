@@ -1,32 +1,46 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
-// const Building = require('./building.model');
-
 const BuildingImage = sequelize.define('BuildingImage', {
-  id: {
-    type: DataTypes.UUID,
-    primaryKey: true,
-    defaultValue: DataTypes.UUIDV4
-  },
-  building_id: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    references: { 
-      model: 'buildings',
-      key: 'id' 
+    id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    building_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'buildings',
+        key: 'id'
+      }
+    },
+    image_url: {
+      type: DataTypes.TEXT,
+      allowNull: false
     }
-  },
-  image_url: {
-    type: DataTypes.TEXT,
-    allowNull: false
-  }
-}, {
-  tableName: 'building_images',
-  timestamps: true,
-  updatedAt: false,
-  underscored: true
-});
+  }, {
+    tableName: 'building_images',
+    schema: 'public',
+    timestamps: true,
+    updatedAt: false,
+    underscored: true,
+    indexes: [
+      {
+        name: "building_images_pkey",
+        unique: true,
+        fields: [
+          { name: "id" },
+        ]
+      }, {
+        name: "idx_building_images_building_id",
+        fields: [
+          { name: "building_id" },
+        ]
+      },
+    ]
+  });
 
 BuildingImage.associate = (models) => {
   BuildingImage.belongsTo(models.Building, { 
@@ -34,5 +48,4 @@ BuildingImage.associate = (models) => {
     as: 'building' 
   });
 };
-
 module.exports = BuildingImage;

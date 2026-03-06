@@ -12,9 +12,8 @@ const getProfileById = async (userId) => {
       'avatar_url',
       'building_id',
       'is_active',
-      'last_login_at',
-      'created_at',
-      'updated_at'
+      'createdAt',
+      'updatedAt'
     ]
   });
 

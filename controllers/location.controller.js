@@ -6,7 +6,7 @@ const locationService = require('../services/location.service');
 const getAllLocations = async (req, res) => {
     try {
         const { page, limit, search, is_active } = req.query;
-        
+
         const result = await locationService.getAllLocations({
             page,
             limit,
@@ -15,14 +15,12 @@ const getAllLocations = async (req, res) => {
         });
 
         return res.status(200).json({
-            success: true,
             message: "Fetched all locations successfully",
             ...result
         });
     } catch (error) {
         console.error("❌ Controller Error (getAllLocations):", error);
         return res.status(error.status || 500).json({
-            success: false,
             message: error.message || "Internal Server Error"
         });
     }
@@ -37,13 +35,11 @@ const getLocationById = async (req, res) => {
         const location = await locationService.getLocationById(id);
 
         return res.status(200).json({
-            success: true,
             data: location
         });
     } catch (error) {
         console.error(`❌ Controller Error (getLocationById - ${req.params.id}):`, error);
         return res.status(error.status || 500).json({
-            success: false,
             message: error.message || "Internal Server Error"
         });
     }
@@ -57,14 +53,12 @@ const createLocation = async (req, res) => {
         const location = await locationService.createLocation(req.body);
 
         return res.status(201).json({
-            success: true,
             message: "Location created successfully",
             data: location
         });
     } catch (error) {
         console.error("❌ Controller Error (createLocation):", error);
         return res.status(error.status || 500).json({
-            success: false,
             message: error.message || "Internal Server Error"
         });
     }
@@ -79,14 +73,12 @@ const updateLocation = async (req, res) => {
         const updatedLocation = await locationService.updateLocation(id, req.body);
 
         return res.status(200).json({
-            success: true,
             message: "Location updated successfully",
             data: updatedLocation
         });
     } catch (error) {
         console.error(`❌ Controller Error (updateLocation - ${req.params.id}):`, error);
         return res.status(error.status || 500).json({
-            success: false,
             message: error.message || "Internal Server Error"
         });
     }
@@ -101,13 +93,11 @@ const deleteLocation = async (req, res) => {
         const result = await locationService.deleteLocation(id);
 
         return res.status(200).json({
-            success: true,
             ...result
         });
     } catch (error) {
         console.error(`❌ Controller Error (deleteLocation - ${req.params.id}):`, error);
         return res.status(error.status || 500).json({
-            success: false,
             message: error.message || "Internal Server Error"
         });
     }
@@ -115,14 +105,23 @@ const deleteLocation = async (req, res) => {
 
 const toggleLocationStatus = async (req, res) => {
     try {
-        const location = await locationService.toggleLocationStatus(req.params.id)
+        const { is_active } = req.body;
+
+        if (typeof is_active !== 'boolean') {
+            return res.status(400).json({
+                message: 'is_active must be a boolean'
+            });
+        }
+
+        const location = await locationService.toggleLocationStatus(req.params.id, is_active)
         return res.status(200).json({
-            success: true,
             message: 'Location status updated successfully',
             data: location
         })
     } catch (err) {
-        return handleError(res, err)
+        return res.status(err.status || 500).json({
+            message: err.message || "Internal Server Error"
+        });
     }
 }
 

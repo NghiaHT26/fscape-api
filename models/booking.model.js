@@ -8,41 +8,55 @@ const Payment = require('./payment.model');
 const Booking = sequelize.define('Booking', {
   id: {
     type: DataTypes.UUID,
-    primaryKey: true,
-    defaultValue: DataTypes.UUIDV4
+    allowNull: false,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
   },
   booking_number: {
     type: DataTypes.STRING(50),
     allowNull: false,
-    unique: true
+    unique: "bookings_booking_number_key"
   },
   room_id: {
     type: DataTypes.UUID,
-    allowNull: false
+    allowNull: false,
+    references: {
+      model: 'rooms',
+      key: 'id'
+    }
   },
   customer_id: {
     type: DataTypes.UUID,
-    allowNull: false
+    allowNull: false,
+    references: {
+      model: 'users',
+      key: 'id'
+    }
   },
   check_in_date: {
     type: DataTypes.DATEONLY,
     allowNull: false
   },
-  status: { 
-    type: DataTypes.ENUM('PENDING', 'DEPOSIT_PAID', 'CONVERTED', 'CANCELLED'), 
-    defaultValue: 'PENDING' 
+  status: {
+    type: DataTypes.ENUM("PENDING", "DEPOSIT_PAID", "CONVERTED", "CANCELLED"),
+    allowNull: true,
+    defaultValue: "PENDING"
   },
   room_price_snapshot: {
-    type: DataTypes.DECIMAL(15, 2),
-    allowNull: false // Lưu giá tại thời điểm đặt
+    type: DataTypes.DECIMAL,
+    allowNull: false
   },
   deposit_amount: {
-    type: DataTypes.DECIMAL(15, 2),
+    type: DataTypes.DECIMAL,
     allowNull: false
   },
   deposit_payment_id: {
     type: DataTypes.UUID,
-    allowNull: true
+    allowNull: true,
+    references: {
+      model: 'payments',
+      key: 'id'
+    }
   },
   deposit_paid_at: {
     type: DataTypes.DATE,
@@ -50,7 +64,11 @@ const Booking = sequelize.define('Booking', {
   },
   contract_id: {
     type: DataTypes.UUID,
-    allowNull: true
+    allowNull: true,
+    references: {
+      model: 'contracts',
+      key: 'id'
+    }
   },
   converted_at: {
     type: DataTypes.DATE,
@@ -74,14 +92,67 @@ const Booking = sequelize.define('Booking', {
   }
 }, {
   tableName: 'bookings',
+  schema: 'public',
   timestamps: true,
-  underscored: true
+    underscored: true,
+  indexes: [
+    {
+      name: "bookings_booking_number_key",
+      unique: true,
+      fields: [
+        { name: "booking_number" },
+      ]
+    },
+    {
+      name: "bookings_pkey",
+      unique: true,
+      fields: [
+        { name: "id" },
+      ]
+    },
+    {
+      name: "idx_bookings_booking_number",
+      fields: [
+        { name: "booking_number" },
+      ]
+    },
+    {
+      name: "idx_bookings_check_in_date",
+      fields: [
+        { name: "check_in_date" },
+      ]
+    },
+    {
+      name: "idx_bookings_customer_id",
+      fields: [
+        { name: "customer_id" },
+      ]
+    },
+    {
+      name: "idx_bookings_expires_at",
+      fields: [
+        { name: "expires_at" },
+      ]
+    },
+    {
+      name: "idx_bookings_room_id",
+      fields: [
+        { name: "room_id" },
+      ]
+    }, {
+      name: "idx_bookings_status",
+      fields: [
+        { name: "status" },
+      ]
+    },
+  ]
 });
 
-/* ===== RELATIONS ===== */
-Booking.belongsTo(Room, { foreignKey: 'room_id', as: 'room' });
-Booking.belongsTo(User, { foreignKey: 'customer_id', as: 'customer' });
-Booking.belongsTo(Contract, { foreignKey: 'contract_id', as: 'contract' });
-Booking.belongsTo(Payment, { foreignKey: 'deposit_payment_id', as: 'payment' });
+Booking.associate = (models) => {
+  Booking.belongsTo(models.Room, { foreignKey: 'room_id', as: 'room' });
+  Booking.belongsTo(models.User, { foreignKey: 'customer_id', as: 'customer' });
+  Booking.belongsTo(models.Contract, { foreignKey: 'contract_id', as: 'contract' });
+  Booking.belongsTo(models.Payment, { foreignKey: 'deposit_payment_id', as: 'payment' });
+};
 
 module.exports = Booking;

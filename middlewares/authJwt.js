@@ -29,6 +29,7 @@ module.exports = async function authJwt(req, res, next) {
     req.user = {
       id: user.id,
       role: user.role,
+      building_id: user.building_id,
     };
 
     next();

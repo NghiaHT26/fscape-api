@@ -8,8 +8,9 @@ const BuildingFacility = require('./buildingFacility.model');
 const Building = sequelize.define('Building', {
   id: {
     type: DataTypes.UUID,
-    primaryKey: true,
-    defaultValue: DataTypes.UUIDV4
+    allowNull: false,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
   },
   location_id: {
     type: DataTypes.UUID,
@@ -28,47 +29,91 @@ const Building = sequelize.define('Building', {
     allowNull: false
   },
   latitude: {
-    type: DataTypes.DECIMAL(10, 8),
+    type: DataTypes.DECIMAL,
     allowNull: false
   },
   longitude: {
-    type: DataTypes.DECIMAL(11, 8),
+    type: DataTypes.DECIMAL,
     allowNull: false
   },
   description: {
-    type: DataTypes.TEXT
+    type: DataTypes.TEXT,
+    allowNull: true
   },
   total_floors: {
-    type: DataTypes.SMALLINT
+    type: DataTypes.SMALLINT,
+    allowNull: true
   },
   thumbnail_url: {
-    type: DataTypes.TEXT
+    type: DataTypes.TEXT,
+    allowNull: true
   },
   is_active: {
     type: DataTypes.BOOLEAN,
+    allowNull: true,
     defaultValue: true
   }
 }, {
   tableName: 'buildings',
+  schema: 'public',
   timestamps: true,
-  underscored: true
+  underscored: true,
+  indexes: [
+    {
+      name: "buildings_pkey",
+      unique: true,
+      fields: [
+        { name: "id" },
+      ]
+    },
+    {
+      name: "idx_buildings_coordinates",
+      fields: [
+        { name: "latitude" },
+        { name: "longitude" },
+      ]
+    },
+    {
+      name: "idx_buildings_is_active",
+      fields: [
+        { name: "is_active" },
+      ]
+    }, {
+      name: "idx_buildings_location_id",
+      fields: [
+        { name: "location_id" },
+      ]
+    },
+  ]
 });
 
-Building.belongsTo(Location, {
-  foreignKey: 'location_id',
-  as: 'location'
-});
+Building.associate = (models) => {
+  Building.belongsTo(models.Location, {
+    foreignKey: 'location_id',
+    as: 'location'
+  });
 
 Building.hasMany(BuildingImage, {
   foreignKey: 'building_id',
   as: 'images'
 });
 
-Building.belongsToMany(Facility, {
-  through: BuildingFacility,
-  foreignKey: 'building_id',
-  otherKey: 'facility_id',
-  as: 'facilities'
-});
+  Building.belongsToMany(models.Facility, {
+    through: models.BuildingFacility,
+    foreignKey: 'building_id',
+    otherKey: 'facility_id',
+    as: 'facilities'
+  });
+
+  Building.hasMany(models.Room, {
+    foreignKey: 'building_id',
+    as: 'rooms'
+  });
+
+  Building.hasOne(models.User, {
+    foreignKey: 'building_id',
+    as: 'manager'
+  });
+};
 
 module.exports = Building;

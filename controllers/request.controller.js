@@ -1,25 +1,16 @@
-const cloudinary = require('../config/cloudinary');
 const requestService = require('../services/request.service');
 
 const handleError = (res, err) => {
     console.error('[RequestController]', err);
     const status = err.status || 500;
     const message = err.message || 'Internal Server Error';
-    return res.status(status).json({ success: false, message });
-};
-
-const uploadToCloudinary = async (file) => {
-    const result = await cloudinary.uploader.upload(
-        `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
-        { folder: 'requests' }
-    );
-    return result.secure_url;
+    return res.status(status).json({ message });
 };
 
 const getAllRequests = async (req, res) => {
     try {
-        const result = await requestService.getAllRequests(req.query);
-        return res.status(200).json({ success: true, ...result });
+        const result = await requestService.getAllRequests(req.user, req.query);
+        return res.status(200).json({ ...result });
     } catch (err) {
         return handleError(res, err);
     }
@@ -27,8 +18,8 @@ const getAllRequests = async (req, res) => {
 
 const getRequestById = async (req, res) => {
     try {
-        const request = await requestService.getRequestById(req.params.id);
-        return res.status(200).json({ success: true, data: request });
+        const request = await requestService.getRequestById(req.user, req.params.id);
+        return res.status(200).json({ data: request });
     } catch (err) {
         return handleError(res, err);
     }
@@ -39,27 +30,21 @@ const createRequest = async (req, res) => {
     try {
         const requestData = { ...req.body };
 
-        if (!requestData.room_id || !requestData.resident_id || !requestData.request_type || !requestData.title) {
+        // Force resident_id from JWT
+        requestData.resident_id = req.user.id;
+
+        if (!requestData.room_id || !requestData.request_type || !requestData.title) {
             return res.status(400).json({
-                success: false,
-                message: 'Missing required fields: room_id, resident_id, request_type, title'
+                message: 'Missing required fields: room_id, request_type, title'
             });
         }
 
-        // Upload ảnh đính kèm (ATTACHMENT)
-        let imageUrls = [];
-        if (req.files && req.files.length > 0) {
-            for (const file of req.files) {
-                const url = await uploadToCloudinary(file);
-                imageUrls.push(url);
-            }
-        }
-        requestData.imageUrls = imageUrls;
+        // image_urls now comes pre-uploaded from the client
+        requestData.imageUrls = requestData.image_urls || [];
 
         const request = await requestService.createRequest(requestData);
 
         return res.status(201).json({
-            success: true,
             message: 'Request created successfully',
             data: request
         });
@@ -71,16 +56,15 @@ const createRequest = async (req, res) => {
 // Manager gán việc cho Staff
 const assignRequest = async (req, res) => {
     try {
-        const { assigned_staff_id, manager_id } = req.body;
-        
+        const { assigned_staff_id } = req.body;
+
         if (!assigned_staff_id) {
-            return res.status(400).json({ success: false, message: 'Missing assigned_staff_id' });
+            return res.status(400).json({ message: 'Missing assigned_staff_id' });
         }
 
-        const request = await requestService.assignRequest(req.params.id, assigned_staff_id, manager_id);
+        const request = await requestService.assignRequest(req.params.id, assigned_staff_id, req.user.id);
 
         return res.status(200).json({
-            success: true,
             message: 'Request assigned successfully',
             data: request
         });
@@ -95,27 +79,21 @@ const updateRequestStatus = async (req, res) => {
         const { id } = req.params;
         const updateData = { ...req.body };
 
-        if (!updateData.status || !updateData.changed_by) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Missing required fields: status, changed_by' 
+        // Force changed_by from JWT
+        updateData.changed_by = req.user.id;
+
+        if (!updateData.status) {
+            return res.status(400).json({
+                message: 'Missing required field: status'
             });
         }
 
-        // Upload ảnh báo cáo hoàn thành (COMPLETION) của Staff
-        let completionImages = [];
-        if (req.files && req.files.length > 0) {
-            for (const file of req.files) {
-                const url = await uploadToCloudinary(file);
-                completionImages.push(url);
-            }
-        }
-        updateData.completionImages = completionImages;
+        // completion_images now comes pre-uploaded from the client
+        updateData.completionImages = updateData.completion_images || [];
 
         const request = await requestService.updateRequestStatus(id, updateData);
 
         return res.status(200).json({
-            success: true,
             message: `Request status updated to ${updateData.status}`,
             data: request
         });

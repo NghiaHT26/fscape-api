@@ -6,6 +6,7 @@ const { connectDB, sequelize } = require('./config/db');
 require('./models/location.model');
 require('./models/facility.model');
 require('./models/roomType.model');
+require('./models/assetType.model');
 
 // Phase 2: Core Tables
 require('./models/university.model');
@@ -25,10 +26,12 @@ require('./models/contractTemplate.model');
 // Phase 4: Room Details & Assets
 require('./models/roomImage.model');
 require('./models/asset.model');
+require('./models/roomTypeAsset.model');
 
 // Phase 5: Business Core
 require('./models/contract.model');
 require('./models/assetHistory.model');
+require('./models/assetInspection.model');
 
 // Phase 6: Operational Tables
 require('./models/contractExtension.model');
@@ -62,13 +65,10 @@ const PORT = process.env.PORT || 3000;
 
 connectDB().then(async () => {
     try {
-        await sequelize.sync(); 
-        console.log('✅ DB synced');
-
         app.listen(PORT, () => {
-            console.log(`🚀 Server running at http://localhost:${PORT}`);
+            console.log(`Server running at http://localhost:${PORT}`);
         });
     } catch (error) {
-        console.error('❌ DB Sync Error:', error);
+        console.error('DB Connect Error:', error);
     }
 });

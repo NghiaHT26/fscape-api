@@ -1,49 +1,65 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-const Contract = require('./contract.model');
 
 const ContractExtension = sequelize.define('ContractExtension', {
     id: {
-        type: DataTypes.UUID,
-        primaryKey: true,
-        defaultValue: DataTypes.UUIDV4
+      type: DataTypes.UUID,
+      allowNull: false,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
     },
-
     contract_id: {
-        type: DataTypes.UUID,
-        allowNull: false
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'contracts',
+        key: 'id'
+      }
     },
-
     previous_end_date: {
-        type: DataTypes.DATEONLY,
-        allowNull: false
+      type: DataTypes.DATEONLY,
+      allowNull: false
     },
-
     new_end_date: {
-        type: DataTypes.DATEONLY,
-        allowNull: false
+      type: DataTypes.DATEONLY,
+      allowNull: false
     },
-
     extension_months: {
-        type: DataTypes.SMALLINT,
-        allowNull: false
+      type: DataTypes.SMALLINT,
+      allowNull: false
     },
-
     reason: {
-        type: DataTypes.TEXT
+      type: DataTypes.TEXT,
+      allowNull: true
     },
-
     approved_by: {
-        type: DataTypes.UUID, allowNull: true
-    } // ID của Manager duyệt
-}, {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    }
+  }, {
     tableName: 'contract_extensions',
+    schema: 'public',
     timestamps: true,
-    underscored: true
-});
-
-/* Relation */
-Contract.hasMany(ContractExtension, { foreignKey: 'contract_id', as: 'extensions' });
-ContractExtension.belongsTo(Contract, { foreignKey: 'contract_id' });
+    updatedAt: false,
+    underscored: true,
+    indexes: [
+      {
+        name: "contract_extensions_pkey",
+        unique: true,
+        fields: [
+          { name: "id" },
+        ]
+      }, {
+        name: "idx_contract_extensions_contract_id",
+        fields: [
+          { name: "contract_id" },
+        ]
+      },
+    ]
+  });
 
 module.exports = ContractExtension;

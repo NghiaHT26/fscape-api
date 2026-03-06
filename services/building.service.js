@@ -8,10 +8,33 @@ const BuildingFacility = require('../models/buildingFacility.model');
 const University = require('../models/university.model');
 const Room = require('../models/room.model');
 const RoomType = require('../models/roomType.model');
+const User = require('../models/user.model');
 
-const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_active } = {}) => {
+const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_active } = {}, user) => {
     const offset = (page - 1) * limit;
     const where = {};
+    const userRole = user?.role || 'PUBLIC';
+
+    // Block Managers and Staff from standard generic /buildings list list 
+    // Usually they use a specialized manager portal or get their assigned building directly.
+    if (userRole === 'BUILDING_MANAGER' || userRole === 'STAFF') {
+        throw { status: 403, message: 'Managers and staff must access their specific assigned building endpoint' };
+    }
+
+    // Public attributes — exclude timestamps for non-admin
+    const publicBuildingAttrs = [
+        'id', 'location_id', 'name', 'address', 'latitude', 'longitude',
+        'description', 'total_floors', 'thumbnail_url', 'is_active'
+    ];
+    let attributes = undefined; // Admin gets everything
+    let facilityThroughAttributes = [];
+    let locationAttributes = ['id', 'name'];
+
+    if (userRole !== 'ADMIN') {
+        attributes = [...publicBuildingAttrs, 'createdAt']; // keep createdAt for ORDER BY
+        facilityThroughAttributes = [];
+        locationAttributes = { exclude: ['createdAt', 'updatedAt', 'is_active'] };
+    }
 
     if (location_id) where.location_id = location_id;
     if (is_active !== undefined) where.is_active = is_active === 'true';
@@ -19,35 +42,64 @@ const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_a
 
     const { count, rows } = await Building.findAndCountAll({
         where,
+        attributes,
         include: [
-            { model: Location, as: 'location', attributes: ['id', 'name'] },
+            { model: Location, as: 'location', attributes: locationAttributes },
             { model: BuildingImage, as: 'images', attributes: ['id', 'image_url'] },
-            { model: Facility, as: 'facilities', through: { attributes: ['is_active'] } }
+            { model: Facility, as: 'facilities', through: { attributes: facilityThroughAttributes } }
         ],
         limit: Number(limit),
         offset: Number(offset),
         distinct: true,
-        order: [['created_at', 'DESC']]
+        order: [['createdAt', 'DESC']]
     });
+
+    // Strip createdAt from public response (it was only kept for ORDER BY)
+    const data = userRole !== 'ADMIN'
+        ? rows.map(r => { const j = r.toJSON(); delete j.createdAt; return j; })
+        : rows;
 
     return {
         total: count,
         page: Number(page),
         limit: Number(limit),
         totalPages: Math.ceil(count / limit),
-        data: rows
+        data
     };
 };
 
-const getBuildingById = async (id) => {
+const getBuildingById = async (id, user) => {
+    const userRole = user?.role || 'PUBLIC';
+
+    // Block Managers and Staff from fetching any random building if it's not theirs
+    if (userRole === 'BUILDING_MANAGER' || userRole === 'STAFF') {
+        throw { status: 403, message: 'Managers and staff must access their specific assigned building endpoint' };
+    }
+
+    const publicBuildingAttrs = [
+        'id', 'location_id', 'name', 'address', 'latitude', 'longitude',
+        'description', 'total_floors', 'thumbnail_url', 'is_active'
+    ];
+    let attributes = undefined;
+    let locationAttributes = undefined;
+    let facilityThroughAttributes = [];
+
+    if (userRole !== 'ADMIN') {
+        attributes = publicBuildingAttrs;
+        locationAttributes = { exclude: ['createdAt', 'updatedAt', 'is_active'] };
+        facilityThroughAttributes = [];
+    }
+
     const building = await Building.findByPk(id, {
+        attributes,
         include: [
-            { model: Location, as: 'location' },
-            { model: BuildingImage, as: 'images' },
-            { model: Facility, as: 'facilities' }
+            { model: Location, as: 'location', attributes: locationAttributes },
+            { model: BuildingImage, as: 'images', attributes: ['id', 'image_url'] },
+            { model: Facility, as: 'facilities', through: { attributes: facilityThroughAttributes } },
+            { model: User, as: 'manager', attributes: ['id', 'email', 'first_name', 'last_name', 'phone', 'avatar_url', 'is_active'], where: { role: 'BUILDING_MANAGER' }, required: false }
         ]
     });
-    
+
     if (!building) throw { status: 404, message: 'Building not found' };
 
     const rooms = await Room.findAll({
@@ -57,13 +109,10 @@ const getBuildingById = async (id) => {
 
     const uniqueRoomTypeIds = [...new Set(rooms.map(room => room.room_type_id))];
 
-    // 4. Query lấy thông tin chi tiết của các Room Types đó
     let roomTypes = [];
     if (uniqueRoomTypeIds.length > 0) {
         roomTypes = await RoomType.findAll({
-            where: {
-                id: uniqueRoomTypeIds
-            }
+            where: { id: uniqueRoomTypeIds }
         });
     }
 
@@ -82,7 +131,21 @@ const getBuildingById = async (id) => {
 
 const createBuilding = async (data) => {
     const { facilities, images, ...buildingData } = data;
-    
+
+    if (facilities && facilities.length > 20) {
+        throw { status: 400, message: 'A building can have a maximum of 20 facilities' };
+    }
+
+    if (buildingData.total_floors && buildingData.total_floors > 100) {
+        throw { status: 400, message: 'A building can have a maximum of 100 floors' };
+    }
+
+    // Check for duplicate building name
+    const existing = await Building.findOne({ where: { name: buildingData.name } });
+    if (existing) {
+        throw { status: 409, message: `Building "${buildingData.name}" already exists` };
+    }
+
     const transaction = await sequelize.transaction();
 
     try {
@@ -107,9 +170,24 @@ const createBuilding = async (data) => {
 };
 
 const updateBuilding = async (id, data) => {
-    const { facilities, images, ...updateData } = data;
+    const { facilities, images, is_active, ...updateData } = data;
+
+    if (facilities && facilities.length > 20) {
+        throw { status: 400, message: 'A building can have a maximum of 20 facilities' };
+    }
+
+    if (updateData.total_floors && updateData.total_floors > 100) {
+        throw { status: 400, message: 'A building can have a maximum of 100 floors' };
+    }
+
     const building = await Building.findByPk(id);
     if (!building) throw { status: 404, message: 'Building not found' };
+
+    // Check for duplicate name if renaming
+    if (updateData.name && updateData.name !== building.name) {
+        const duplicate = await Building.findOne({ where: { name: updateData.name, id: { [Op.ne]: id } } });
+        if (duplicate) throw { status: 409, message: 'Building name already exists' };
+    }
 
     const transaction = await sequelize.transaction();
     try {
@@ -138,26 +216,40 @@ const updateBuilding = async (id, data) => {
 const deleteBuilding = async (id) => {
     const building = await Building.findByPk(id);
     if (!building) throw { status: 404, message: 'Building not found' };
-    
+
+    // Prevent deletion if the building has existing rooms associated with it
+    const roomsCount = await Room.count({ where: { building_id: id } });
+    if (roomsCount > 0) {
+        throw { status: 400, message: `Building cannot be deleted because it contains ${roomsCount} associated room(s). Delete the rooms first.` };
+    }
+
     await building.destroy();
     return { message: `Building "${building.name}" deleted successfully` };
 };
 
-const toggleBuildingStatus = async (id) => {
+const toggleBuildingStatus = async (id, isActive, user) => {
     const building = await Building.findByPk(id)
     if (!building) throw { status: 404, message: 'Building not found' }
 
-    building.is_active = !building.is_active
+    if (user && user.role === 'BUILDING_MANAGER' && user.building_id !== building.id) {
+        throw { status: 403, message: 'You are only allowed to manage your assigned building' }
+    }
+
+    if (building.is_active === isActive) {
+        throw { status: 400, message: `Building is already ${isActive ? 'active' : 'inactive'}` }
+    }
+
+    building.is_active = isActive
     await building.save()
 
     return building
 }
 
-module.exports = { 
-    getAllBuildings, 
-    getBuildingById, 
-    createBuilding, 
-    updateBuilding, 
-    deleteBuilding, 
-    toggleBuildingStatus 
+module.exports = {
+    getAllBuildings,
+    getBuildingById,
+    createBuilding,
+    updateBuilding,
+    deleteBuilding,
+    toggleBuildingStatus
 };
