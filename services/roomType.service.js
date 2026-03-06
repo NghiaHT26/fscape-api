@@ -40,8 +40,13 @@ const getAllRoomTypes = async ({
         order: [['createdAt', 'DESC']]
     })
 
+    const active_count = await RoomType.count({
+        where: { ...where, is_active: true }
+    });
+
     return {
         total: count,
+        active_count,
         page: parsedPage,
         limit: parsedLimit,
         totalPages: Math.ceil(count / parsedLimit),
@@ -192,6 +197,10 @@ const replaceTemplateAssets = async (roomTypeId, items) => {
 
     if (!Array.isArray(items)) {
         throw { status: 400, message: 'Body must be an array of { asset_type_id, quantity }' }
+    }
+
+    if (items.length > 20) {
+        throw { status: 400, message: 'Tối đa chỉ được gán 20 loại tài sản cho một loại phòng' }
     }
 
     // Validate all asset_type_ids exist

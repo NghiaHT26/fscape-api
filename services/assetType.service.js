@@ -33,8 +33,13 @@ const getAllAssetTypes = async (query = {}, user = {}) => {
         });
     }
 
+    const active_count = await AssetType.count({
+        where: { ...where, is_active: true }
+    });
+
     return {
         total: count,
+        active_count,
         page: Number(page),
         limit: Number(limit),
         totalPages: Math.ceil(count / limit),
@@ -96,13 +101,8 @@ const deleteAssetType = async (id) => {
     const assetType = await AssetType.findByPk(id);
     if (!assetType) throw { status: 404, message: 'Asset type not found' };
 
-    const linkedCount = await Asset.count({ where: { asset_type_id: id } });
-    if (linkedCount > 0) {
-        throw { status: 409, message: `Cannot delete asset type because ${linkedCount} asset(s) still use it` };
-    }
-
-    await assetType.destroy();
-    return { message: `Asset type "${assetType.name}" deleted successfully` };
+    await assetType.update({ is_active: false });
+    return { message: `Asset type "${assetType.name}" has been deactivated` };
 };
 
 module.exports = { getAllAssetTypes, getAssetTypeById, createAssetType, updateAssetType, deleteAssetType };

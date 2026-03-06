@@ -1,15 +1,20 @@
 const express = require('express');
 const router = express.Router();
+const authJwt = require('../middlewares/authJwt');
+const requireRoles = require('../middlewares/requireRoles');
+const { ROLES } = require('../constants/roles');
 const requestController = require('../controllers/request.controller');
 
-router.get('/', requestController.getAllRequests);
+router.use(authJwt);
 
-router.get('/:id', requestController.getRequestById);
+router.get('/', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT), requestController.getAllRequests);
 
-router.post('/', requestController.createRequest);
+router.get('/:id', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT), requestController.getRequestById);
 
-router.patch('/:id/assign', requestController.assignRequest);
+router.post('/', requireRoles(ROLES.RESIDENT), requestController.createRequest);
 
-router.patch('/:id/status', requestController.updateRequestStatus);
+router.patch('/:id/assign', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), requestController.assignRequest);
+
+router.patch('/:id/status', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT), requestController.updateRequestStatus);
 
 module.exports = router;

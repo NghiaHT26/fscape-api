@@ -138,6 +138,58 @@ const createAsset = async (data) => {
     }
 };
 
+// ─── POST /api/assets/batch (Admin only) ─────────────────────
+const createBatchAssets = async (data) => {
+    const { name, building_id, asset_type_id, quantity = 1, price } = data;
+
+    if (!name || !building_id) {
+        throw { status: 400, message: 'name and building_id are required' };
+    }
+    if (!quantity || quantity < 1 || quantity > 100) {
+        throw { status: 400, message: 'quantity must be between 1 and 100' };
+    }
+
+    const building = await Building.findByPk(building_id);
+    if (!building) throw { status: 404, message: 'Building not found' };
+
+    if (asset_type_id) {
+        const AssetType = require('../models/assetType.model');
+        const at = await AssetType.findByPk(asset_type_id);
+        if (!at) throw { status: 404, message: 'Asset type not found' };
+    }
+
+    const transaction = await sequelize.transaction();
+    try {
+        const created = [];
+        for (let i = 0; i < quantity; i++) {
+            const qr_code = `FSCAPE-AST-${randomUUID()}`;
+            const asset = await Asset.create({
+                name,
+                building_id,
+                asset_type_id: asset_type_id || null,
+                price: price || null,
+                qr_code,
+                status: 'AVAILABLE',
+            }, { transaction });
+
+            await AssetHistory.create({
+                asset_id: asset.id,
+                to_status: 'AVAILABLE',
+                from_status: 'AVAILABLE',
+                action: 'INITIAL_CREATE',
+                notes: `Tạo hàng loạt (${i + 1}/${quantity})`
+            }, { transaction });
+
+            created.push(asset);
+        }
+        await transaction.commit();
+        return { count: created.length, data: created };
+    } catch (error) {
+        await transaction.rollback();
+        throw error;
+    }
+};
+
 // ─── PUT /api/assets/:id (Admin only) ────────────────────────
 const updateAsset = async (id, data, performerId = null) => {
     const asset = await Asset.findByPk(id);
@@ -268,4 +320,4 @@ const deleteAsset = async (id) => {
     return { message: `Asset "${asset.name}" deleted successfully` };
 };
 
-module.exports = { getAllAssets, getAssetById, createAsset, updateAsset, assignAsset, deleteAsset };
+module.exports = { getAllAssets, getAssetById, createAsset, createBatchAssets, updateAsset, assignAsset, deleteAsset };

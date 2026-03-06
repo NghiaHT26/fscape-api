@@ -14,4 +14,6 @@ router.get('/', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), controller.li
 
 router.patch('/:id/status', requireRoles(ROLES.ADMIN), controller.updateUserStatus);
 
+router.patch('/:id/building', requireRoles(ROLES.ADMIN), controller.assignBuilding);
+
 module.exports = router;

@@ -8,6 +8,7 @@ const BuildingFacility = require('../models/buildingFacility.model');
 const University = require('../models/university.model');
 const Room = require('../models/room.model');
 const RoomType = require('../models/roomType.model');
+const User = require('../models/user.model');
 
 const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_active } = {}, user) => {
     const offset = (page - 1) * limit;
@@ -26,7 +27,7 @@ const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_a
         'description', 'total_floors', 'thumbnail_url', 'is_active'
     ];
     let attributes = undefined; // Admin gets everything
-    let facilityThroughAttributes = ['is_active'];
+    let facilityThroughAttributes = [];
     let locationAttributes = ['id', 'name'];
 
     if (userRole !== 'ADMIN') {
@@ -81,7 +82,7 @@ const getBuildingById = async (id, user) => {
     ];
     let attributes = undefined;
     let locationAttributes = undefined;
-    let facilityThroughAttributes = ['is_active'];
+    let facilityThroughAttributes = [];
 
     if (userRole !== 'ADMIN') {
         attributes = publicBuildingAttrs;
@@ -94,7 +95,8 @@ const getBuildingById = async (id, user) => {
         include: [
             { model: Location, as: 'location', attributes: locationAttributes },
             { model: BuildingImage, as: 'images', attributes: ['id', 'image_url'] },
-            { model: Facility, as: 'facilities', through: { attributes: facilityThroughAttributes } }
+            { model: Facility, as: 'facilities', through: { attributes: facilityThroughAttributes } },
+            { model: User, as: 'manager', attributes: ['id', 'email', 'first_name', 'last_name', 'phone', 'avatar_url', 'is_active'], where: { role: 'BUILDING_MANAGER' }, required: false }
         ]
     });
 

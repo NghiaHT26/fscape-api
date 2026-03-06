@@ -97,7 +97,7 @@ class AdminUserService {
   // =========================
   // GET USERS (role-scoped)
   // =========================
-  static async getUsers(caller, { page = 1, limit = 10, search, role, is_active } = {}) {
+  static async getUsers(caller, { page = 1, limit = 10, search, role, is_active, building_id } = {}) {
     const offset = (page - 1) * limit;
     const where = {};
 
@@ -110,6 +110,11 @@ class AdminUserService {
     }
     if (role) where.role = role;
     if (is_active !== undefined) where.is_active = is_active === 'true';
+    if (building_id === 'none') {
+      where.building_id = null;
+    } else if (building_id) {
+      where.building_id = building_id;
+    }
 
     if (caller.role === ROLES.ADMIN) {
       const { count, rows } = await User.findAndCountAll({
@@ -181,6 +186,43 @@ class AdminUserService {
     }
 
     user.is_active = isActive;
+    await user.save();
+
+    return user;
+  }
+  // =========================
+  // ASSIGN BUILDING TO USER
+  // =========================
+  static async assignBuilding(userId, buildingId) {
+    const user = await User.findByPk(userId);
+    if (!user) throw new Error('User not found');
+
+    if (!ADMIN_MANAGEABLE_ROLES.includes(user.role)) {
+      throw new Error('Can only assign buildings to managers or staff');
+    }
+
+    // buildingId = null means unassign
+    if (buildingId) {
+      const building = await Building.findByPk(buildingId);
+      if (!building) throw new Error('Building not found');
+
+      // BM uniqueness: one active BM per building
+      if (user.role === ROLES.BUILDING_MANAGER) {
+        const existingBM = await User.findOne({
+          where: {
+            building_id: buildingId,
+            role: ROLES.BUILDING_MANAGER,
+            is_active: true,
+            id: { [Op.ne]: userId },
+          },
+        });
+        if (existingBM) {
+          throw new Error('This building already has an active manager. Remove the current manager first.');
+        }
+      }
+    }
+
+    user.building_id = buildingId;
     await user.save();
 
     return user;

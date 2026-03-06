@@ -30,6 +30,17 @@ const createAsset = async (req, res) => {
     } catch (err) { return handleError(res, err); }
 };
 
+const createBatchAssets = async (req, res) => {
+    try {
+        const { name, building_id, asset_type_id, quantity, price } = req.body;
+        if (!name || !building_id) {
+            return res.status(400).json({ message: 'name and building_id are required' });
+        }
+        const result = await assetService.createBatchAssets({ name, building_id, asset_type_id, quantity, price });
+        return res.status(201).json({ message: `${result.count} assets created`, ...result });
+    } catch (err) { return handleError(res, err); }
+};
+
 const updateAsset = async (req, res) => {
     try {
         const asset = await assetService.updateAsset(req.params.id, req.body, req.user.id);
@@ -52,4 +63,4 @@ const deleteAsset = async (req, res) => {
     } catch (err) { return handleError(res, err); }
 };
 
-module.exports = { getAllAssets, getAssetById, createAsset, updateAsset, assignAsset, deleteAsset };
+module.exports = { getAllAssets, getAssetById, createAsset, createBatchAssets, updateAsset, assignAsset, deleteAsset };

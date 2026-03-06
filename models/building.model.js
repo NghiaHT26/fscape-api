@@ -53,7 +53,7 @@ const Building = sequelize.define('Building', {
   tableName: 'buildings',
   schema: 'public',
   timestamps: true,
-    underscored: true,
+  underscored: true,
   indexes: [
     {
       name: "buildings_pkey",
@@ -104,6 +104,11 @@ Building.associate = (models) => {
   Building.hasMany(models.Room, {
     foreignKey: 'building_id',
     as: 'rooms'
+  });
+
+  Building.hasOne(models.User, {
+    foreignKey: 'building_id',
+    as: 'manager'
   });
 };
 

@@ -12,6 +12,8 @@ router.get('/:id', authJwt, requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, RO
 
 router.post('/', authJwt, requireAdmin, assetController.createAsset);
 
+router.post('/batch', authJwt, requireAdmin, assetController.createBatchAssets);
+
 router.put('/:id', authJwt, requireAdmin, assetController.updateAsset);
 
 router.patch('/:id/assign', authJwt, requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF), assetController.assignAsset);
