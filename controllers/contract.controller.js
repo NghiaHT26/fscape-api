@@ -37,25 +37,49 @@ const updateContract = async (req, res) => {
     } catch (err) { return handleError(res, err); }
 };
 
-// [PATCH] /api/contracts/:id/approve
-const approveContract = async (req, res) => {
+// [GET] /api/contracts/my
+const getMyContracts = async (req, res) => {
     try {
-        const manager_id = req.user.id;
-        const contract = await contractService.updateContractStatus(req.params.id, 'ACTIVE', manager_id);
+        const contracts = await contractService.getMyContracts(req.user.id);
+        return res.status(200).json({ data: contracts });
+    } catch (err) { return handleError(res, err); }
+};
+
+// [PATCH] /api/contracts/:id/sign — Customer/Resident signs
+const customerSign = async (req, res) => {
+    try {
+        const { signature_url } = req.body;
+        if (!signature_url) {
+            return res.status(400).json({ message: 'signature_url is required' });
+        }
+
+        const contract = await contractService.customerSign(
+            req.params.id, signature_url, req.user, req
+        );
 
         return res.status(200).json({
-            message: 'Contract approved and room status updated to OCCUPIED',
+            message: 'Contract signed successfully',
             data: contract
         });
     } catch (err) { return handleError(res, err); }
 };
 
-// [GET] /api/contracts/my
-const getMyContracts = async (req, res) => {
+// [PATCH] /api/contracts/:id/manager-sign — Building Manager signs
+const managerSign = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const contracts = await contractService.getMyContracts(userId);
-        return res.status(200).json({ data: contracts });
+        const { signature_url } = req.body;
+        if (!signature_url) {
+            return res.status(400).json({ message: 'signature_url is required' });
+        }
+
+        const contract = await contractService.managerSign(
+            req.params.id, signature_url, req.user, req
+        );
+
+        return res.status(200).json({
+            message: 'Contract signed and activated successfully',
+            data: contract
+        });
     } catch (err) { return handleError(res, err); }
 };
 
@@ -64,5 +88,6 @@ module.exports = {
     getContractById,
     getMyContracts,
     updateContract,
-    approveContract
+    customerSign,
+    managerSign
 };
