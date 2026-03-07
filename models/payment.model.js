@@ -127,6 +127,6 @@ Payment.associate = (models) => {
   Payment.belongsTo(models.User, { foreignKey: 'user_id', as: 'payer' });
   Payment.belongsTo(models.Invoice, { foreignKey: 'invoice_id', as: 'invoice' });
   Payment.belongsTo(models.Contract, { foreignKey: 'contract_id', as: 'contract' });
-  Payment.belongsTo(models.Booking, { foreignKey: 'booking_id', as: 'booking' });
+  Payment.hasOne(models.Booking, { foreignKey: 'deposit_payment_id', as: 'booking' });
 };
 module.exports = Payment;

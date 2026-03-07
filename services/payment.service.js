@@ -1,5 +1,6 @@
 const { sequelize } = require('../config/db');
 const { createPaymentUrl, verifyIpnSignature } = require('../utils/vnpay');
+const contractService = require('./contract.service');
 
 const createBookingPaymentUrl = async (userId, bookingId, ipAddr) => {
     const { Booking, Payment } = sequelize.models;
@@ -79,7 +80,7 @@ const createInvoicePaymentUrl = async (userId, invoiceId, ipAddr) => {
 };
 
 const vnpayIpn = async (query) => {
-    const { Payment, Booking, Contract, Invoice } = sequelize.models;
+    const { Payment, Booking, Invoice } = sequelize.models;
 
     const isValidSignature = verifyIpnSignature(query);
     if (!isValidSignature) {
@@ -127,69 +128,16 @@ const vnpayIpn = async (query) => {
             gateway_response: query
         }, { transaction });
 
+        let depositPaidBookingId = null;
+
         if (payment.payment_type === 'DEPOSIT') {
-            // Xử lý booking (tìm booking thông qua deposit_payment_id)
             const booking = await Booking.findOne({ where: { deposit_payment_id: payment.id }, transaction });
             if (booking) {
-                // update booking -> DEPOSIT_PAID
                 await booking.update({
                     status: 'DEPOSIT_PAID',
                     deposit_paid_at: new Date()
                 }, { transaction });
-
-                // Find manager_id (BUILDING_MANAGER of the room's building)
-                let managerId = booking.customer_id; // Default fallback to customer
-                const room = await sequelize.models.Room.findByPk(booking.room_id, { transaction });
-                if (room) {
-                    const manager = await sequelize.models.User.findOne({
-                        where: {
-                            building_id: room.building_id,
-                            role: 'BUILDING_MANAGER',
-                            is_active: true
-                        },
-                        transaction
-                    });
-                    if (manager) {
-                        managerId = manager.id;
-                    }
-                }
-
-                // Determine billing cycle
-                let billingCycle = "MONTHLY";
-                if (booking.duration_months === 6) {
-                    billingCycle = "SEMI_ANNUALLY";
-                } // Can add more logic based on requirements here
-
-                // Calculate end_date based on check_in_date and duration_months
-                let endDate = null;
-                if (booking.duration_months) {
-                    const startDateObj = new Date(booking.check_in_date);
-                    // Add duration_months to start_date
-                    endDate = new Date(startDateObj.setMonth(startDateObj.getMonth() + booking.duration_months));
-                }
-
-                // Sinh hợp đồng (Contract)
-                const newContract = await Contract.create({
-                    contract_number: `CTR-${Date.now()}`,
-                    room_id: booking.room_id,
-                    customer_id: booking.customer_id,
-                    manager_id: managerId,
-                    term_type: "FIXED_TERM",
-                    base_rent: booking.room_price_snapshot,
-                    deposit_amount: booking.deposit_amount,
-                    start_date: booking.check_in_date,
-                    end_date: endDate,
-                    billing_cycle: billingCycle,
-                    next_billing_date: booking.check_in_date,
-                    status: "DRAFT"
-                }, { transaction });
-
-                // Đổi Booking -> CONVERTED
-                await booking.update({
-                    status: 'CONVERTED',
-                    contract_id: newContract.id,
-                    converted_at: new Date()
-                }, { transaction });
+                depositPaidBookingId = booking.id;
             }
         } else if (payment.payment_type === 'RENT') {
             // Xử lý Hóa đơn
@@ -203,6 +151,13 @@ const vnpayIpn = async (query) => {
         }
 
         await transaction.commit();
+
+        // Tạo contract ngoài transaction (contractService tự quản lý transaction riêng)
+        if (depositPaidBookingId) {
+            contractService.createContractFromBooking(depositPaidBookingId)
+                .catch(err => console.error('[PaymentService] Failed to create contract:', err));
+        }
+
         return { RspCode: '00', Message: 'Confirm Success' };
     } catch (err) {
         await transaction.rollback();
