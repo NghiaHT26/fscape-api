@@ -41,30 +41,26 @@ const createInvoicePaymentUrl = async (req, res) => {
 const vnpayIpn = async (req, res) => {
     try {
         const query = req.query;
+        console.log('[VNPay IPN] Received callback:', {
+            responseCode: query.vnp_ResponseCode,
+            txnRef: query.vnp_TxnRef,
+            amount: query.vnp_Amount,
+            transactionNo: query.vnp_TransactionNo
+        });
         const result = await paymentService.vnpayIpn(query);
+        console.log('[VNPay IPN] Processed result:', result);
         return res.status(200).json(result);
     } catch (error) {
+        console.error('[VNPay IPN] Error:', error.message);
         return res.status(500).json({ RspCode: '99', Message: 'Internal Server Error' });
     }
 };
 
 const vnpayReturn = async (req, res) => {
-    try {
-        const query = req.query;
-
-        const isValidSignature = verifyIpnSignature(query);
-        if (!isValidSignature) {
-            return res.status(400).json({ message: "Chữ ký không hợp lệ", code: query.vnp_ResponseCode });
-        }
-
-        if (query.vnp_ResponseCode === '00') {
-            return res.status(200).json({ message: "Thanh toán thành công", code: '00', data: query });
-        } else {
-            return res.status(400).json({ message: "Thanh toán thất bại hoặc đã bị hủy", code: query.vnp_ResponseCode, data: query });
-        }
-    } catch (error) {
-        return res.status(500).json({ message: error.message || 'Lỗi hệ thống khi xác thực kết quả thanh toán' });
-    }
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const code = req.query.vnp_ResponseCode || 'unknown';
+    const txnRef = req.query.vnp_TxnRef || '';
+    return res.redirect(`${clientUrl}/payment/result?vnp_ResponseCode=${code}&vnp_TxnRef=${txnRef}`);
 };
 
 const getMyPayments = async (req, res) => {

@@ -405,6 +405,38 @@ const getRoomsByBuilding = async (buildingId, query = {}, user = {}) => {
   return data;
 };
 
+// ─── GET /api/rooms/my — rooms for CUSTOMER/RESIDENT ────────
+const getMyRooms = async (userId) => {
+  // Find rooms where the user has an active contract
+  const contracts = await Contract.findAll({
+    where: {
+      customer_id: userId,
+      status: { [Op.in]: ['ACTIVE', 'EXPIRING_SOON'] }
+    },
+    attributes: ['id', 'contract_number', 'status', 'start_date', 'end_date', 'base_rent'],
+    include: [{
+      model: Room,
+      as: 'room',
+      attributes: ['id', 'room_number', 'floor', 'thumbnail_url', 'status'],
+      include: [
+        {
+          model: Building,
+          as: 'building',
+          attributes: ['id', 'name', 'address', 'thumbnail_url']
+        },
+        {
+          model: RoomType,
+          as: 'room_type',
+          attributes: ['id', 'name', 'area_sqm', 'bedrooms', 'bathrooms', 'capacity_max']
+        }
+      ]
+    }],
+    order: [['start_date', 'DESC']]
+  });
+
+  return contracts;
+};
+
 module.exports = {
   getAllRooms,
   getRoomById,
@@ -412,5 +444,6 @@ module.exports = {
   updateRoom,
   deleteRoom,
   toggleRoomStatus,
-  getRoomsByBuilding
+  getRoomsByBuilding,
+  getMyRooms
 };

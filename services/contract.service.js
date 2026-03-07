@@ -5,6 +5,7 @@ const ContractTemplate = require('../models/contractTemplate.model');
 const User = require('../models/user.model');
 const Room = require('../models/room.model');
 const Building = require('../models/building.model');
+const RoomType = require('../models/roomType.model');
 const CustomerProfile = require('../models/customerProfile.model');
 const Booking = require('../models/booking.model');
 const { ROLES } = require('../constants/roles');
@@ -189,14 +190,21 @@ const updateContract = async (id, data, user) => {
 const getMyContracts = async (userId) => {
     return await Contract.findAll({
         where: { customer_id: userId },
-        include: [
-            {
-                model: Room,
-                as: 'room',
-                attributes: ['id', 'room_number'],
-                include: [{ model: Building, as: 'building' }]
-            }
+        attributes: [
+            'id', 'contract_number', 'status', 'start_date', 'end_date',
+            'base_rent', 'deposit_amount', 'pdf_url', 'rendered_content',
+            'customer_signed_at', 'manager_signed_at', 'signature_expires_at',
+            'createdAt'
         ],
+        include: [{
+            model: Room,
+            as: 'room',
+            attributes: ['id', 'room_number', 'floor', 'thumbnail_url'],
+            include: [
+                { model: Building, as: 'building', attributes: ['id', 'name', 'address'] },
+                { model: RoomType, as: 'room_type', attributes: ['id', 'name'] }
+            ]
+        }],
         order: [['createdAt', 'DESC']]
     });
 };
