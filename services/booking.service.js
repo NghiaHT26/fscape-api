@@ -1,7 +1,6 @@
 const { sequelize } = require('../config/db');
-const { DEPOSIT_MONTHS, DEFAULT_DEPOSIT_MONTHS, MIN_CHECKIN_DAYS } = require('../constants/booking');
+const { DEPOSIT_MONTHS, DEFAULT_DEPOSIT_MONTHS, MIN_CHECKIN_DAYS, BOOKING_EXPIRY_MS } = require('../constants/booking');
 const { generateNumberedId } = require('../utils/generateId');
-const contractService = require('./contract.service');
 
 const createBooking = async (userId, bookingData) => {
     const { Booking, Room, RoomType, User, CustomerProfile } = sequelize.models;
@@ -63,17 +62,17 @@ const createBooking = async (userId, bookingData) => {
             }, { transaction });
         }
 
-        // 4. Tạo Booking — skip payment, coi như đã paid
+        // 4. Tạo Booking (PENDING — chờ thanh toán VNPAY)
         booking = await Booking.create({
             booking_number: generateNumberedId('BK'),
             room_id: roomId,
             customer_id: userId,
             check_in_date: checkInDate,
             duration_months: rentalTerm,
-            status: 'DEPOSIT_PAID',
+            status: 'PENDING',
             room_price_snapshot: basePrice,
             deposit_amount: depositAmount,
-            deposit_paid_at: new Date()
+            expires_at: new Date(Date.now() + BOOKING_EXPIRY_MS)
         }, { transaction });
 
         // 5. Giữ chỗ phòng
@@ -85,28 +84,35 @@ const createBooking = async (userId, bookingData) => {
         throw error;
     }
 
-    // Tạo contract + gửi email (ngoài transaction — booking đã saved)
-    try {
-        const contract = await contractService.createContractFromBooking(booking.id);
-        booking.contract_id = contract.id;
-    } catch (error) {
-        console.error('[BookingService] Failed to create contract:', error);
-    }
-
     return booking;
 };
 
 const getMyBookings = async (userId) => {
-    const { Booking, Room, Building } = sequelize.models;
+    const { Booking, Room, Building, RoomType } = sequelize.models;
     return await Booking.findAll({
         where: { customer_id: userId },
-        include: [
-            {
-                model: Room,
-                as: 'room',
-                include: [{ model: Building, as: 'building' }]
-            }
+        attributes: [
+            'id', 'booking_number', 'status', 'check_in_date', 'duration_months',
+            'room_price_snapshot', 'deposit_amount', 'deposit_paid_at',
+            'expires_at', 'cancelled_at', 'cancellation_reason', 'createdAt'
         ],
+        include: [{
+            model: Room,
+            as: 'room',
+            attributes: ['id', 'room_number', 'floor', 'thumbnail_url'],
+            include: [
+                {
+                    model: Building,
+                    as: 'building',
+                    attributes: ['id', 'name', 'address']
+                },
+                {
+                    model: RoomType,
+                    as: 'room_type',
+                    attributes: ['id', 'name', 'area_sqm', 'bedrooms', 'bathrooms']
+                }
+            ]
+        }],
         order: [['createdAt', 'DESC']]
     });
 };
