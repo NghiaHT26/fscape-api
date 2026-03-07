@@ -10,6 +10,8 @@ router.post('/signup/verify', validator.verifySignup, validate, controller.verif
 
 router.post('/login', validator.signin, validate, controller.signin);
 
+router.post('/app/login', validator.signin, validate, controller.appLogin);
+
 router.post('/forgot-password', validator.forgotPassword, validate, controller.forgotPassword);
 
 router.post('/reset-password', validator.resetPassword, validate, controller.resetPassword);
