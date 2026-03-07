@@ -140,4 +140,31 @@ function uploadToCloudinary(buffer, { folder, resourceType, extension = '' }) {
   });
 }
 
-module.exports = { uploadFiles };
+/**
+ * Upload a raw buffer to Cloudinary for a given category.
+ * Used for server-side uploads (e.g. PDF generation) where there is no HTTP request.
+ *
+ * @param {Buffer} buffer - File content
+ * @param {string} categoryKey - Key from UPLOAD_CATEGORIES (e.g. 'contract_pdf')
+ * @param {string} filename - Original filename (used for extension)
+ * @returns {string} Cloudinary secure_url
+ */
+async function uploadBuffer(buffer, categoryKey, filename) {
+  const config = UPLOAD_CATEGORIES[categoryKey];
+  if (!config) {
+    const err = new Error(`Unknown upload type: ${categoryKey}`);
+    err.status = 400;
+    throw err;
+  }
+
+  const resourceType = config.resourceType || 'image';
+  const ext = filename ? path.extname(filename).toLowerCase() : '';
+
+  return uploadToCloudinary(buffer, {
+    folder: config.folder,
+    resourceType,
+    extension: resourceType === 'raw' ? ext : '',
+  });
+}
+
+module.exports = { uploadFiles, uploadBuffer };

@@ -1,15 +1,25 @@
 const { sequelize } = require('../config/db');
-const { DEPOSIT_MONTHS, DEFAULT_DEPOSIT_MONTHS, BOOKING_EXPIRY_MS } = require('../constants/booking');
+const { DEPOSIT_MONTHS, DEFAULT_DEPOSIT_MONTHS, MIN_CHECKIN_DAYS } = require('../constants/booking');
 const { generateNumberedId } = require('../utils/generateId');
+const contractService = require('./contract.service');
 
 const createBooking = async (userId, bookingData) => {
     const { Booking, Room, RoomType, User, CustomerProfile } = sequelize.models;
     const { roomId, checkInDate, rentalTerm, customerInfo } = bookingData;
 
+    // Validate check-in date: phải >= today + MIN_CHECKIN_DAYS
+    const minCheckIn = new Date();
+    minCheckIn.setDate(minCheckIn.getDate() + MIN_CHECKIN_DAYS);
+    minCheckIn.setHours(0, 0, 0, 0);
+    if (new Date(checkInDate) < minCheckIn) {
+        throw { status: 400, message: `Ngày nhận phòng phải từ ${MIN_CHECKIN_DAYS} ngày kể từ hôm nay.` };
+    }
+
     const transaction = await sequelize.transaction();
+    let booking;
 
     try {
-        // 1. Kiểm tra phòng tồn tại và còn trống
+        // 1. Lock phòng trước
         const room = await Room.findByPk(roomId, {
             include: [{ model: RoomType, as: 'room_type', required: true }],
             transaction,
@@ -24,10 +34,9 @@ const createBooking = async (userId, bookingData) => {
             throw { status: 400, message: 'Phòng này hiện không còn trống.' };
         }
 
-        // 2. Tính tiền cọc
-        // rentalTerm: 1 (1 tháng), 6 (6 tháng), null (vô hạn)
-        // 6 tháng → cọc 6 tháng, còn lại → cọc 1 tháng
-        const basePrice = Number(room.room_type?.base_price || 0);
+        // 2. Lấy room type riêng (không cần lock)
+        const roomType = await RoomType.findByPk(room.room_type_id, { transaction });
+        const basePrice = Number(roomType?.base_price || 0);
         const depositMonths = DEPOSIT_MONTHS[rentalTerm] ?? DEFAULT_DEPOSIT_MONTHS;
         const depositAmount = basePrice * depositMonths;
 
@@ -54,29 +63,37 @@ const createBooking = async (userId, bookingData) => {
             }, { transaction });
         }
 
-        // 4. Tạo Booking
-        const booking = await Booking.create({
+        // 4. Tạo Booking — skip payment, coi như đã paid
+        booking = await Booking.create({
             booking_number: generateNumberedId('BK'),
             room_id: roomId,
             customer_id: userId,
             check_in_date: checkInDate,
             duration_months: rentalTerm,
-            status: 'PENDING',
+            status: 'DEPOSIT_PAID',
             room_price_snapshot: basePrice,
             deposit_amount: depositAmount,
-            expires_at: new Date(Date.now() + BOOKING_EXPIRY_MS)
+            deposit_paid_at: new Date()
         }, { transaction });
 
         // 5. Giữ chỗ phòng
         await room.update({ status: 'LOCKED' }, { transaction });
 
         await transaction.commit();
-        return booking;
-
     } catch (error) {
         await transaction.rollback();
         throw error;
     }
+
+    // Tạo contract + gửi email (ngoài transaction — booking đã saved)
+    try {
+        const contract = await contractService.createContractFromBooking(booking.id);
+        booking.contract_id = contract.id;
+    } catch (error) {
+        console.error('[BookingService] Failed to create contract:', error);
+    }
+
+    return booking;
 };
 
 const getMyBookings = async (userId) => {
