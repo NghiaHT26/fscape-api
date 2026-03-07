@@ -1,4 +1,5 @@
 const User = require('../models/user.model');
+const CustomerProfile = require('../models/customerProfile.model');
 
 const getProfileById = async (userId) => {
   const user = await User.findByPk(userId, {
@@ -14,7 +15,12 @@ const getProfileById = async (userId) => {
       'is_active',
       'createdAt',
       'updatedAt'
-    ]
+    ],
+    include: [{
+      model: CustomerProfile,
+      as: 'profile',
+      attributes: ['gender', 'date_of_birth', 'permanent_address', 'emergency_contact_name', 'emergency_contact_phone']
+    }]
   });
 
   if (!user) {

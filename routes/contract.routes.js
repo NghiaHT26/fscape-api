@@ -16,8 +16,8 @@ router.get('/my', requireRoles(ROLES.RESIDENT, ROLES.CUSTOMER), contractControll
 // Contract detail — ADMIN / BM / RESIDENT / CUSTOMER
 router.get('/:id', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.RESIDENT, ROLES.CUSTOMER), contractController.getContractById);
 
-// No POST — contracts are created internally by the system (via booking/payment flow)
-// No DELETE — contracts cannot be deleted
+// No POST 
+// No DELETE 
 
 // Update contract — ADMIN / BM (extend duration, adjust end_date, etc.)
 router.put('/:id', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), contractController.updateContract);

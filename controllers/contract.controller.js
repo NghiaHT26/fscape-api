@@ -45,7 +45,7 @@ const getMyContracts = async (req, res) => {
     } catch (err) { return handleError(res, err); }
 };
 
-// [PATCH] /api/contracts/:id/sign — Customer/Resident signs
+// [PATCH] /api/contracts/:id/sign — Customer/Resident signs (authenticated)
 const customerSign = async (req, res) => {
     try {
         const { signature_url } = req.body;
