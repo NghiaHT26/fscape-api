@@ -11,7 +11,7 @@ const createBooking = async (userId, bookingData) => {
     try {
         // 1. Kiểm tra phòng tồn tại và còn trống
         const room = await Room.findByPk(roomId, {
-            include: [{ model: RoomType, as: 'room_type' }],
+            include: [{ model: RoomType, as: 'room_type', required: true }],
             transaction,
             lock: transaction.LOCK.UPDATE
         });

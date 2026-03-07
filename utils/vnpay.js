@@ -1,0 +1,71 @@
+const crypto = require("crypto");
+const moment = require("moment");
+const qs = require("qs");
+
+function sortObject(obj) {
+  const sorted = {};
+  const keys = Object.keys(obj).sort();
+
+  keys.forEach((key) => {
+    sorted[key] = obj[key];
+  });
+
+  return sorted;
+}
+
+function createPaymentUrl(params) {
+
+  const createDate = moment().format("YYYYMMDDHHmmss");
+
+  let vnp_Params = {
+    vnp_Version: "2.1.0",
+    vnp_Command: "pay",
+    vnp_TmnCode: process.env.VNP_TMN_CODE,
+    vnp_Locale: "vn",
+    vnp_CurrCode: "VND",
+    vnp_TxnRef: params.txnRef,
+    vnp_OrderInfo: params.orderInfo,
+    vnp_OrderType: "other",
+    vnp_Amount: params.amount / 10,
+    vnp_ReturnUrl: process.env.VNP_RETURN_URL,
+    vnp_IpAddr: params.ipAddr,
+    vnp_CreateDate: createDate
+  };
+
+  vnp_Params = sortObject(vnp_Params);
+
+  const signData = qs.stringify(vnp_Params, { encode: true });
+
+  const hmac = crypto.createHmac("sha512", process.env.VNP_HASH_SECRET);
+  const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
+
+  vnp_Params["vnp_SecureHash"] = signed;
+
+  const paymentUrl =
+    process.env.VNP_URL +
+    "?" +
+    qs.stringify(vnp_Params, { encode: true });
+    console.log("Return URL:", process.env.VNP_RETURN_URL);
+    console.log("VNPay Params:", vnp_Params);
+  return paymentUrl;
+}
+function verifyIpnSignature(vnp_Params) {
+  const secureHash = vnp_Params["vnp_SecureHash"];
+
+  delete vnp_Params["vnp_SecureHash"];
+  delete vnp_Params["vnp_SecureHashType"];
+
+  const sortedParams = sortObject(vnp_Params);
+
+  const signData = qs.stringify(sortedParams, { encode: true });
+
+  const hmac = crypto.createHmac(
+    "sha512",
+    process.env.VNP_HASH_SECRET
+  );
+
+  const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
+
+  return secureHash === signed;
+}
+module.exports = { createPaymentUrl, verifyIpnSignature };
