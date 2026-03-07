@@ -10,6 +10,84 @@ const Asset = require('../models/asset.model');
 const Building = require('../models/building.model');
 const { ROLES } = require('../constants/roles');
 const { createNotification } = require('./notification.service');
+
+// ── Status transition map ──
+// Mỗi key là from_status, value là object { to_status: { roles, requiredFields } }
+const TRANSITION_MAP = {
+    PENDING: {
+        CANCELLED: {
+            roles: [ROLES.RESIDENT],
+            required: [],
+        },
+    },
+    ASSIGNED: {
+        PRICE_PROPOSED: {
+            roles: [ROLES.STAFF],
+            required: ['service_price'],
+        },
+    },
+    PRICE_PROPOSED: {
+        APPROVED: {
+            roles: [ROLES.RESIDENT],
+            required: [],
+        },
+        CANCELLED: {
+            roles: [ROLES.RESIDENT],
+            required: [],
+        },
+    },
+    APPROVED: {
+        IN_PROGRESS: {
+            roles: [ROLES.STAFF],
+            required: [],
+        },
+    },
+    IN_PROGRESS: {
+        DONE: {
+            roles: [ROLES.STAFF],
+            required: ['completion_note'],
+        },
+    },
+    DONE: {
+        COMPLETED: {
+            roles: [ROLES.RESIDENT],
+            required: ['feedback_rating'],
+        },
+        REVIEWED: {
+            roles: [ROLES.RESIDENT],
+            required: ['report_reason'],
+        },
+    },
+    REVIEWED: {
+        REFUNDED: {
+            roles: [ROLES.ADMIN, ROLES.BUILDING_MANAGER],
+            required: [],
+        },
+        COMPLETED: {
+            roles: [ROLES.ADMIN, ROLES.BUILDING_MANAGER],
+            required: [],
+        },
+    },
+};
+
+const validateTransition = (fromStatus, toStatus, callerRole, body) => {
+    const fromMap = TRANSITION_MAP[fromStatus];
+    if (!fromMap || !fromMap[toStatus]) {
+        throw { status: 400, message: `Invalid status transition: ${fromStatus} → ${toStatus}` };
+    }
+
+    const rule = fromMap[toStatus];
+
+    if (!rule.roles.includes(callerRole)) {
+        throw { status: 403, message: `Role ${callerRole} is not allowed to change status from ${fromStatus} to ${toStatus}` };
+    }
+
+    for (const field of rule.required) {
+        if (body[field] === undefined || body[field] === null || body[field] === '') {
+            throw { status: 400, message: `Missing required field: ${field} (for transition ${fromStatus} → ${toStatus})` };
+        }
+    }
+};
 // Helper sinh mã Request tự động (VD: REQ-20260302-001)
 const generateRequestNumber = async () => {
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -95,9 +173,9 @@ const getRequestById = async (caller, id) => {
                 model: RequestStatusHistory,
                 as: 'status_history',
                 include: [{ model: User, as: 'modifier', attributes: ['id', 'first_name', 'last_name', 'role'] }],
-                order: [['createdAt', 'DESC']]
             }
-        ]
+        ],
+        order: [[{ model: RequestStatusHistory, as: 'status_history' }, 'created_at', 'DESC']]
     });
 
     if (!request) throw { status: 404, message: 'Request not found' };
@@ -125,12 +203,14 @@ const createRequest = async (data) => {
     const transaction = await sequelize.transaction();
 
     try {
+        const room = await Room.findByPk(requestData.room_id, { transaction });
+        if (!room) throw { status: 404, message: 'Room not found' };
+
         requestData.request_number = await generateRequestNumber();
         requestData.status = 'PENDING';
 
         const request = await Request.create(requestData, { transaction });
 
-        // 1. Lưu ảnh (Resident upload lên làm bằng chứng)
         if (imageUrls && imageUrls.length > 0) {
             const imageRecords = imageUrls.map(url => ({
                 request_id: request.id,
@@ -141,7 +221,6 @@ const createRequest = async (data) => {
             await RequestImage.bulkCreate(imageRecords, { transaction });
         }
 
-        // 2. Ghi log khởi tạo
         await RequestStatusHistory.create({
             request_id: request.id,
             from_status: null,
@@ -150,7 +229,6 @@ const createRequest = async (data) => {
             reason: 'User created request'
         }, { transaction });
 
-        // 3️ Notify STAFF + MANAGER
         await createNotification({
             type: "REQUEST_CREATED",
             title: "New Service Request",
@@ -158,7 +236,7 @@ const createRequest = async (data) => {
             target_type: "REQUEST",
             target_id: request.id,
             created_by: requestData.resident_id,
-            building_id: requestData.building_id,
+            building_id: room.building_id,
             roles: ["BUILDING_MANAGER"]
         }, transaction);
 
@@ -175,7 +253,15 @@ const createRequest = async (data) => {
 
         await transaction.commit();
 
-        return getRequestById({ role: ROLES.ADMIN }, request.id);
+        return {
+            id: request.id,
+            request_number: request.request_number,
+            room_id: request.room_id,
+            request_type: request.request_type,
+            title: request.title,
+            status: request.status,
+            created_at: request.created_at,
+        };
     } catch (error) {
         await transaction.rollback();
         throw error;
@@ -186,10 +272,12 @@ const assignRequest = async (id, staff_id, manager_id) => {
     const request = await Request.findByPk(id);
     if (!request) throw { status: 404, message: 'Request not found' };
 
+    if (request.status !== 'PENDING') {
+        throw { status: 400, message: `Cannot assign: request status is ${request.status}, expected PENDING` };
+    }
+
     const transaction = await sequelize.transaction();
     try {
-        const oldStatus = request.status;
-
         await request.update({
             assigned_staff_id: staff_id,
             status: 'ASSIGNED'
@@ -197,7 +285,7 @@ const assignRequest = async (id, staff_id, manager_id) => {
 
         await RequestStatusHistory.create({
             request_id: request.id,
-            from_status: oldStatus,
+            from_status: 'PENDING',
             to_status: 'ASSIGNED',
             changed_by: manager_id,
             reason: 'Manager assigned task to staff'
@@ -214,7 +302,8 @@ const assignRequest = async (id, staff_id, manager_id) => {
             target_id: staff_id,
             reference_type: 'REQUEST',
             reference_id: request.id,
-            created_by: manager_id
+            created_by: manager_id,
+            specific_user_ids: [staff_id]
         });
 
         return getRequestById({ role: ROLES.ADMIN }, id);
@@ -225,36 +314,51 @@ const assignRequest = async (id, staff_id, manager_id) => {
 };
 
 const updateRequestStatus = async (id, updateData) => {
-    const { status, changed_by, reason, completionImages, service_price, completion_note, feedback_rating, feedback_comment, report_reason } = updateData;
+    const {
+        status, changed_by, caller_role, reason,
+        completionImages, service_price, completion_note,
+        feedback_rating, feedback_comment, report_reason
+    } = updateData;
 
     const request = await Request.findByPk(id);
     if (!request) throw { status: 404, message: 'Request not found' };
 
+    const oldStatus = request.status;
+
+    // ── Validate transition, role, required fields ──
+    validateTransition(oldStatus, status, caller_role, updateData);
+
     const transaction = await sequelize.transaction();
     try {
-        const oldStatus = request.status;
-
-        // Build object để update vào bảng Requests dựa theo trạng thái
         const requestUpdatePayload = { status };
 
-        if (service_price) requestUpdatePayload.service_price = service_price;
-        if (completion_note) requestUpdatePayload.completion_note = completion_note;
-        if (status === 'DONE') requestUpdatePayload.completed_at = new Date();
+        // PRICE_PROPOSED: Staff báo giá
+        if (status === 'PRICE_PROPOSED') {
+            requestUpdatePayload.request_price = service_price;
+        }
 
-        if (status === 'COMPLETED' && feedback_rating) {
+        // DONE: Staff hoàn thành
+        if (status === 'DONE') {
+            requestUpdatePayload.completion_note = completion_note;
+            requestUpdatePayload.completed_at = new Date();
+        }
+
+        // COMPLETED from DONE: Resident feedback OK
+        if (status === 'COMPLETED' && oldStatus === 'DONE') {
             requestUpdatePayload.feedback_rating = feedback_rating;
-            requestUpdatePayload.feedback_comment = feedback_comment;
+            if (feedback_comment) requestUpdatePayload.feedback_comment = feedback_comment;
             requestUpdatePayload.feedback_at = new Date();
         }
 
-        if (status === 'REVIEWED' && report_reason) {
+        // REVIEWED: Resident report vấn đề
+        if (status === 'REVIEWED') {
             requestUpdatePayload.report_reason = report_reason;
             requestUpdatePayload.reported_at = new Date();
         }
 
         await request.update(requestUpdatePayload, { transaction });
 
-        // Nếu Staff up ảnh hoàn thành công việc
+        // Ảnh hoàn thành (khi DONE)
         if (completionImages && completionImages.length > 0) {
             const imageRecords = completionImages.map(url => ({
                 request_id: id,
@@ -265,35 +369,47 @@ const updateRequestStatus = async (id, updateData) => {
             await RequestImage.bulkCreate(imageRecords, { transaction });
         }
 
-        // Ghi Log lịch sử
         await RequestStatusHistory.create({
             request_id: id,
             from_status: oldStatus,
             to_status: status,
-            changed_by: changed_by,
+            changed_by,
             reason: reason || `Status updated to ${status}`
         }, { transaction });
 
         await transaction.commit();
 
-        // Bắn thông báo cho Resident khi trạng thái thay đổi
-        let notifTitle = 'Cập nhật yêu cầu';
-        let notifContent = `Yêu cầu ${request.request_number} của bạn đã chuyển sang trạng thái: ${status}`;
+        // ── Notifications ──
+        const NOTIF_MAP = {
+            PRICE_PROPOSED: {
+                title: 'Có báo giá dịch vụ mới',
+                content: `Nhân viên đã báo giá cho yêu cầu ${request.request_number}. Vui lòng kiểm tra và xác nhận.`,
+            },
+            IN_PROGRESS: {
+                title: 'Yêu cầu đang được xử lý',
+                content: `Nhân viên đã bắt đầu xử lý yêu cầu ${request.request_number}.`,
+            },
+            DONE: {
+                title: 'Yêu cầu đã hoàn thành',
+                content: `Nhân viên đã hoàn thành yêu cầu ${request.request_number}. Vui lòng đánh giá dịch vụ.`,
+            },
+            REFUNDED: {
+                title: 'Yêu cầu được chấp nhận hoàn tiền',
+                content: `Quản lý đã chấp nhận báo cáo cho yêu cầu ${request.request_number}. Hoàn tiền sẽ được xử lý.`,
+            },
+        };
 
-        if (status === 'PRICE_PROPOSED') {
-            notifTitle = 'Có báo giá dịch vụ mới';
-            notifContent = `Nhân viên đã báo giá cho yêu cầu ${request.request_number}. Vui lòng kiểm tra và xác nhận.`;
-        } else if (status === 'DONE') {
-            notifTitle = 'Yêu cầu đã hoàn thành';
-            notifContent = `Nhân viên đã hoàn thành yêu cầu ${request.request_number}. Vui lòng đánh giá dịch vụ.`;
-        }
+        const notif = NOTIF_MAP[status] || {
+            title: 'Cập nhật yêu cầu',
+            content: `Yêu cầu ${request.request_number} đã chuyển sang trạng thái: ${status}`,
+        };
 
         await notificationService.createNotification({
             type: 'REQUEST_STATUS_CHANGED',
-            title: notifTitle,
-            content: notifContent,
+            title: notif.title,
+            content: notif.content,
             target_type: 'USER',
-            target_id: request.resident_id, // Gửi cho người tạo request
+            target_id: request.resident_id,
             reference_type: 'REQUEST',
             reference_id: request.id,
             created_by: changed_by

@@ -73,14 +73,13 @@ const assignRequest = async (req, res) => {
     }
 };
 
-// Staff hoặc Resident cập nhật trạng thái
 const updateRequestStatus = async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = { ...req.body };
 
-        // Force changed_by from JWT
         updateData.changed_by = req.user.id;
+        updateData.caller_role = req.user.role;
 
         if (!updateData.status) {
             return res.status(400).json({
@@ -88,7 +87,6 @@ const updateRequestStatus = async (req, res) => {
             });
         }
 
-        // completion_images now comes pre-uploaded from the client
         updateData.completionImages = updateData.completion_images || [];
 
         const request = await requestService.updateRequestStatus(id, updateData);
