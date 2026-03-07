@@ -61,10 +61,13 @@ Object.keys(models).forEach((modelName) => {
     }
 });
 
+const { initCronJobs } = require('./jobs');
+
 const PORT = process.env.PORT || 3000;
 
 connectDB().then(async () => {
     try {
+        initCronJobs();
         app.listen(PORT, () => {
             console.log(`Server running at http://localhost:${PORT}`);
         });
