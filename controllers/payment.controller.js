@@ -1,6 +1,6 @@
 const { sequelize } = require("../config/db");
 const paymentService = require("../services/payment.service");
-
+const { verifyIpnSignature } = require('../utils/vnpay');
 const getClientIp = (req) => {
     let ip = req.headers['x-forwarded-for'] ||
         req.connection.remoteAddress ||
@@ -51,7 +51,6 @@ const vnpayIpn = async (req, res) => {
 const vnpayReturn = async (req, res) => {
     try {
         const query = req.query;
-        const { verifyIpnSignature } = require('../utils/vnpay');
 
         const isValidSignature = verifyIpnSignature(query);
         if (!isValidSignature) {

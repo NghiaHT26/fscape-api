@@ -26,7 +26,7 @@ function createPaymentUrl(params) {
     vnp_TxnRef: params.txnRef,
     vnp_OrderInfo: params.orderInfo,
     vnp_OrderType: "other",
-    vnp_Amount: params.amount / 10,
+    vnp_Amount: params.amount * 100,
     vnp_ReturnUrl: process.env.VNP_RETURN_URL,
     vnp_IpAddr: params.ipAddr,
     vnp_CreateDate: createDate
