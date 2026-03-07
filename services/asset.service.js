@@ -247,6 +247,7 @@ const assignAsset = async (id, { room_id, notes }, user) => {
     }
 
     const oldRoom = asset.current_room_id;
+    const oldStatus = asset.status;
     let action;
 
     const transaction = await sequelize.transaction();
@@ -281,7 +282,7 @@ const assignAsset = async (id, { room_id, notes }, user) => {
             asset_id: asset.id,
             from_room_id: oldRoom,
             to_room_id: room_id || null,
-            from_status: asset.status,
+            from_status: oldStatus,
             to_status: room_id ? 'IN_USE' : 'AVAILABLE',
             action,
             performed_by: user.id,
