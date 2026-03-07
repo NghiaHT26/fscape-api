@@ -109,6 +109,15 @@ const getRoomsByBuilding = async (req, res, next) => {
     next(error);
   }
 };
+const getMyRooms = async (req, res) => {
+    try {
+        const data = await roomService.getMyRooms(req.user.id);
+        return res.status(200).json({ data });
+    } catch (err) {
+        return handleError(res, err);
+    }
+};
+
 module.exports = {
     getAllRooms,
     getRoomById,
@@ -116,5 +125,6 @@ module.exports = {
     updateRoom,
     deleteRoom,
     toggleRoomStatus,
-    getRoomsByBuilding
+    getRoomsByBuilding,
+    getMyRooms
 };

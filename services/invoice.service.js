@@ -1,6 +1,7 @@
 const { sequelize } = require('../config/db');
 const { Op } = require('sequelize');
 const moment = require('moment');
+const { generateNumberedId } = require('../utils/generateId');
 
 /**
  * Job tạo hóa đơn định kỳ cho các hợp đồng đến hạn.
@@ -8,31 +9,28 @@ const moment = require('moment');
  */
 const generatePeriodicInvoices = async () => {
     const { Contract, Invoice, InvoiceItem, Request, Room } = sequelize.models;
-    const transaction = await sequelize.transaction();
 
-    try {
-        const today = moment().format('YYYY-MM-DD');
+    const today = moment().format('YYYY-MM-DD');
 
-        // Lấy tất cả các hợp đồng ACTIVE và đến lịch thu tiền
-        const dueContracts = await Contract.findAll({
-            where: {
-                status: 'ACTIVE',
-                next_billing_date: {
-                    [Op.lte]: today
-                }
-            },
-            include: [{ model: Room, as: 'room' }],
-            transaction
-        });
+    const dueContracts = await Contract.findAll({
+        where: {
+            status: 'ACTIVE',
+            next_billing_date: {
+                [Op.lte]: today
+            }
+        },
+        include: [{ model: Room, as: 'room' }]
+    });
 
-        console.log(`[Invoice Job] Tìm thấy ${dueContracts.length} hợp đồng đến hạn thu tiền.`);
-        let generatedCount = 0;
+    console.log(`[InvoiceJob] Tìm thấy ${dueContracts.length} hợp đồng đến hạn thu tiền.`);
+    let generatedCount = 0;
 
-        for (const contract of dueContracts) {
+    for (const contract of dueContracts) {
+        const transaction = await sequelize.transaction();
+        try {
             // 1. Xác định kỳ thu tiền
             const billingPeriodStart = contract.next_billing_date;
 
-            // Tính chu kỳ theo block
             let monthsToAdd = 1;
             if (contract.billing_cycle === 'SEMI_ANNUALLY') monthsToAdd = 6;
             else if (contract.billing_cycle === 'QUARTERLY') monthsToAdd = 3;
@@ -41,11 +39,9 @@ const generatePeriodicInvoices = async () => {
             const nextBillingDate = moment(billingPeriodStart).add(monthsToAdd, 'months').format('YYYY-MM-DD');
 
             // 2. Tính tiền phòng
-            // Cần tính theo block nếu billing cycle dài hơn 1 tháng
             const roomRent = Number(contract.base_rent) * monthsToAdd;
 
-            // 3. Tính phí dịch vụ (tìm các request hoàn thành trong kỳ trước)
-            // Lấy từ lần bill trước hoặc từ ngày bắt đầu nếu là lần đầu.
+            // 3. Tính phí dịch vụ (request hoàn thành trong kỳ trước)
             const lastBilledDate = contract.last_billed_date || contract.start_date;
             const completedRequests = await Request.findAll({
                 where: {
@@ -61,35 +57,26 @@ const generatePeriodicInvoices = async () => {
 
             const requestFees = completedRequests.reduce((sum, req) => sum + Number(req.price || 0), 0);
 
-            // Tổng tiền
             const penaltyFees = 0;
-            const discountAmount = 0;
-            const refundAmount = 0;
-            const totalAmount = roomRent + requestFees + penaltyFees - discountAmount - refundAmount;
-
-            // Nếu nhỏ hơn hoặc = 0, thì skip? (Tuỳ policy, tạm thời cứ tạo hoá đơn nếu có cycle)
+            const totalAmount = roomRent + requestFees + penaltyFees;
 
             // 4. Tạo Invoice
-            const invoiceNumber = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-            const dueDate = moment(billingPeriodStart).add(5, 'days').format('YYYY-MM-DD'); // policy: hạn 5 ngày
+            const dueDate = moment(billingPeriodStart).add(5, 'days').format('YYYY-MM-DD');
 
             const newInvoice = await Invoice.create({
-                invoice_number: invoiceNumber,
+                invoice_number: generateNumberedId('INV'),
                 contract_id: contract.id,
                 billing_period_start: billingPeriodStart,
                 billing_period_end: billingPeriodEnd,
                 room_rent: roomRent,
                 request_fees: requestFees,
                 penalty_fees: penaltyFees,
-                discount_amount: discountAmount,
-                refund_amount: refundAmount,
                 total_amount: totalAmount,
                 status: 'UNPAID',
                 due_date: dueDate
             }, { transaction });
 
-            // 5. Tạo InvoiceItems (Chi tiết hóa đơn)
-            // -> Item tiền phòng
+            // 5. Tạo InvoiceItems
             await InvoiceItem.create({
                 invoice_id: newInvoice.id,
                 item_type: 'RENT',
@@ -99,7 +86,6 @@ const generatePeriodicInvoices = async () => {
                 amount: roomRent
             }, { transaction });
 
-            // -> Lấy item service/requests
             for (const req of completedRequests) {
                 if (Number(req.price) > 0) {
                     await InvoiceItem.create({
@@ -115,13 +101,15 @@ const generatePeriodicInvoices = async () => {
                 }
             }
 
-            // 6. Cập nhật ngày thu tiền tới của Hợp đồng
+            // 6. Cập nhật ngày thu tiền tới
             await contract.update({
                 next_billing_date: nextBillingDate,
                 last_billed_date: billingPeriodStart
             }, { transaction });
 
-            // 7. Gửi thông báo cho khách hàng
+            await transaction.commit();
+
+            // 7. Gửi thông báo (ngoài transaction để không block)
             try {
                 const { notificationService } = require('./notification.service');
                 if (notificationService) {
@@ -138,20 +126,18 @@ const generatePeriodicInvoices = async () => {
                     });
                 }
             } catch (notifyErr) {
-                console.error(`[Invoice Job] Lỗi gửi thông báo cho hóa đơn ${newInvoice.id}:`, notifyErr);
-                // Không throw error để job tiếp tục chạy cho các hợp đồng khác
+                console.error(`[InvoiceJob] Lỗi gửi thông báo cho hóa đơn ${newInvoice.id}:`, notifyErr);
             }
 
             generatedCount++;
+            console.log(`[InvoiceJob] Tạo hóa đơn ${newInvoice.invoice_number} cho hợp đồng ${contract.contract_number}`);
+        } catch (err) {
+            await transaction.rollback();
+            console.error(`[InvoiceJob] Lỗi tạo hóa đơn cho hợp đồng ${contract.id}:`, err.message);
         }
-
-        await transaction.commit();
-        return generatedCount;
-    } catch (error) {
-        await transaction.rollback();
-        console.error("Lỗi khi sinh hóa đơn tự động:", error);
-        throw error;
     }
+
+    return generatedCount;
 };
 
 const getMyInvoices = async (userId) => {
@@ -190,7 +176,7 @@ const getInvoiceById = async (userId, invoiceId) => {
             },
             {
                 model: InvoiceItem,
-                as: 'items' // Cần config trong mock (nếu chưa có relation, check model sau)
+                as: 'items'
             }
         ]
     });

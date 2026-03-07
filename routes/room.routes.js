@@ -9,6 +9,9 @@ const { ROLES } = require('../constants/roles');
 
 router.get('/', authJwtOptional, roomController.getAllRooms);
 
+// My rooms — CUSTOMER / RESIDENT only (must be before /:id)
+router.get('/my', authJwt, requireRoles(ROLES.CUSTOMER, ROLES.RESIDENT), roomController.getMyRooms);
+
 router.get('/:id', authJwtOptional, roomController.getRoomById);
 
 router.get("/building/:buildingId",
