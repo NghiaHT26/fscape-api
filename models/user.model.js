@@ -103,5 +103,9 @@ User.associate = (models) => {
   User.hasMany(models.AuthProvider, { foreignKey: 'user_id' });
   User.hasMany(models.Booking, { foreignKey: 'customer_id', as: 'bookings' });
   User.hasMany(models.Payment, { foreignKey: 'user_id', as: 'payments' });
+  User.hasMany(models.AuthProvider, {
+    foreignKey: 'user_id',
+    as: 'authProviders'
+  });
 };
 module.exports = User;

@@ -43,6 +43,7 @@ class AuthService {
       include: [
         {
           model: User,
+          as: "User",
           attributes: [
             "id",
             "email",
@@ -57,8 +58,12 @@ class AuthService {
     });
 
     if (!auth || !auth.is_verified) throw new Error("Invalid credentials");
-    if (!auth.User || auth.User.is_active === false)
-      throw new Error("User account is deactivated");
+    if (!auth.User || auth.User.is_active === false){
+      if (auth.User.is_active === false) {
+        console.log("Account is inactive", auth.User.id, auth.User.email, auth.User.is_active);
+        throw new Error("User account is deactivated");
+      }
+    }
     const match = await comparePassword(password, auth.password_hash);
     if (!match) throw new Error("Invalid credentials");
 

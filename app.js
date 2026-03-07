@@ -27,11 +27,12 @@ app.use('/api/users', require('./routes/adminUser.route'));
 app.use('/api/auth', require('./routes/auth.route'));
 app.use('/api/user-profile', require('./routes/userProfile.route'));
 app.use('/api/bookings', require('./routes/booking.routes'));
-app.use('/api/payments', require('./routes/payment.routes'));
+app.use('/api/payment', require('./routes/payment.routes'));
 app.use('/api/upload', require('./routes/upload.routes'));
 app.use('/api/asset-types', require('./routes/assetType.routes'));
 app.use('/api/contract-templates', require('./routes/contractTemplate.routes'));
 app.use('/api/inspections', require('./routes/inspection.routes'));
 app.use('/api/contracts', require('./routes/contract.routes'));
 app.use('/api/audit-logs', require('./routes/auditLog.routes'));
+app.use('/api/invoices', require('./routes/invoice.routes'));
 module.exports = app
