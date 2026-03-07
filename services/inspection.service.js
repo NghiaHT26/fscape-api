@@ -248,7 +248,7 @@ async function confirmCheckIn(room, qrCodes, notes, user) {
     }
 }
 
-// ─── CHECK-OUT: validate exact assets → record missing ────────
+// ─── CHECK-OUT: validate exact assets → unassign all, deduct deposit if missing ─
 async function confirmCheckOut(room, qrCodes, notes, user) {
     const diff = await computeCheckOutDiff(room, qrCodes);
     const hasMissing = diff.missing.length > 0;
@@ -259,34 +259,33 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
             room_id: room.id,
             performed_by: user.id,
             type: 'CHECK_OUT',
-            status: hasMissing ? 'PENDING_SETTLEMENT' : 'NO_DISCREPANCY',
+            status: hasMissing ? 'SETTLED' : 'NO_DISCREPANCY',
             penalty_total: diff.penalty_total,
             notes
         }, { transaction });
 
-        // Log history for matched (scanned) assets
         const historyRows = [];
+
         for (const asset of diff._matchedAssets) {
             historyRows.push({
                 asset_id: asset.id,
                 from_room_id: room.id,
-                to_room_id: room.id,
+                to_room_id: null,
                 from_status: asset.status,
-                to_status: asset.status,
-                action: 'INSPECTION_MATCHED',
+                to_status: 'AVAILABLE',
+                action: 'CHECK_OUT',
                 performed_by: user.id,
                 notes: `inspection:${inspection.id}`
             });
         }
 
-        // Log history for missing assets
         for (const asset of diff._missingAssets) {
             historyRows.push({
                 asset_id: asset.id,
                 from_room_id: room.id,
-                to_room_id: room.id,
+                to_room_id: null,
                 from_status: asset.status,
-                to_status: asset.status,
+                to_status: 'MAINTENANCE',
                 action: 'INSPECTION_MISSING',
                 performed_by: user.id,
                 notes: `inspection:${inspection.id}`
@@ -297,14 +296,58 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
             await AssetHistory.bulkCreate(historyRows, { transaction });
         }
 
-        // If no discrepancy, unassign all assets from room immediately
-        if (!hasMissing) {
-            const allAssetIds = diff._matchedAssets.map(a => a.id);
-            if (allAssetIds.length > 0) {
-                await Asset.update(
-                    { current_room_id: null, status: 'AVAILABLE' },
-                    { where: { id: { [Op.in]: allAssetIds } }, transaction }
-                );
+        const matchedIds = diff._matchedAssets.map(a => a.id);
+        if (matchedIds.length > 0) {
+            await Asset.update(
+                { current_room_id: null, status: 'AVAILABLE' },
+                { where: { id: { [Op.in]: matchedIds } }, transaction }
+            );
+        }
+
+        const missingIds = diff._missingAssets.map(a => a.id);
+        if (missingIds.length > 0) {
+            await Asset.update(
+                { current_room_id: null, status: 'MAINTENANCE' },
+                { where: { id: { [Op.in]: missingIds } }, transaction }
+            );
+        }
+
+        let depositDeduction = null;
+
+        if (hasMissing) {
+            const contract = await Contract.findOne({
+                where: {
+                    room_id: room.id,
+                    status: { [Op.in]: ['ACTIVE', 'EXPIRING_SOON', 'FINISHED'] }
+                },
+                order: [['created_at', 'DESC']],
+                transaction
+            });
+
+            if (contract) {
+                const oldDeposit = Number(contract.deposit_amount);
+                const penalty = Number(diff.penalty_total);
+                const newDeposit = oldDeposit - penalty;
+
+                await contract.update({ deposit_amount: newDeposit }, { transaction });
+
+                await auditService.log({
+                    user,
+                    action: 'UPDATE',
+                    entityType: 'contract',
+                    entityId: contract.id,
+                    oldValue: { deposit_amount: oldDeposit },
+                    newValue: { deposit_amount: newDeposit, penalty_from_inspection: inspection.id },
+                }, { transaction });
+
+                depositDeduction = {
+                    contract_id: contract.id,
+                    contract_number: contract.contract_number,
+                    old_deposit: oldDeposit,
+                    penalty_deducted: penalty,
+                    new_deposit: newDeposit,
+                    deficit: newDeposit < 0,
+                };
             }
         }
 
@@ -316,6 +359,7 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
             missing: diff.missing,
             extra: diff.extra,
             penalty_total: diff.penalty_total,
+            deposit_deduction: depositDeduction,
             unknown_qr_codes: diff.unknown_qr_codes
         };
     } catch (error) {
@@ -324,77 +368,4 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
     }
 }
 
-// ─── POST /api/inspections/:id/settle ─────────────────────────
-const settleInspection = async (inspectionId, user) => {
-    const inspection = await AssetInspection.findByPk(inspectionId);
-    if (!inspection) throw { status: 404, message: 'Inspection not found' };
-
-    if (inspection.status !== 'PENDING_SETTLEMENT') {
-        throw { status: 409, message: 'Inspection has no pending settlement or is already settled' };
-    }
-
-    // Find the active/recent contract for this room
-    const contract = await Contract.findOne({
-        where: {
-            room_id: inspection.room_id,
-            status: { [Op.in]: ['ACTIVE', 'EXPIRING_SOON', 'FINISHED'] }
-        },
-        order: [['created_at', 'DESC']]
-    });
-
-    if (!contract) {
-        throw { status: 404, message: 'No active or recent contract found for this room' };
-    }
-
-    const oldDeposit = Number(contract.deposit_amount);
-    const penalty = Number(inspection.penalty_total);
-    const newDeposit = oldDeposit - penalty;
-
-    const transaction = await sequelize.transaction();
-    try {
-        await contract.update({ deposit_amount: newDeposit }, { transaction });
-
-        await AssetInspection.update(
-            { status: 'SETTLED' },
-            { where: { id: inspectionId }, transaction }
-        );
-
-        // Unassign all remaining assets from the room (check-out cleanup)
-        const roomAssets = await Asset.findAll({
-            where: { current_room_id: inspection.room_id },
-            attributes: ['id']
-        });
-        if (roomAssets.length > 0) {
-            await Asset.update(
-                { current_room_id: null, status: 'AVAILABLE' },
-                { where: { id: { [Op.in]: roomAssets.map(a => a.id) } }, transaction }
-            );
-        }
-
-        await auditService.log({
-            user,
-            action: 'UPDATE',
-            entityType: 'contract',
-            entityId: contract.id,
-            oldValue: { deposit_amount: oldDeposit },
-            newValue: { deposit_amount: newDeposit, penalty_from_inspection: inspectionId },
-        }, { transaction });
-
-        await transaction.commit();
-
-        return {
-            inspection: { id: inspectionId, status: 'SETTLED', penalty_total: penalty },
-            contract: {
-                id: contract.id,
-                contract_number: contract.contract_number,
-                deposit_amount: newDeposit,
-                deficit: newDeposit < 0
-            }
-        };
-    } catch (error) {
-        await transaction.rollback();
-        throw error;
-    }
-};
-
-module.exports = { previewInspection, confirmInspection, settleInspection };
+module.exports = { previewInspection, confirmInspection };

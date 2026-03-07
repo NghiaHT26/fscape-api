@@ -29,6 +29,15 @@ exports.signin = async (req, res) => {
   }
 };
 
+exports.appLogin = async (req, res) => {
+  try {
+    const result = await AuthService.appLogin(req.body.email, req.body.password);
+    res.json(result);
+  } catch (e) {
+    res.status(401).json({ message: e.message });
+  }
+};
+
 exports.forgotPassword = async (req, res) => {
   try {
     const result = await AuthService.forgotPassword(req.body.email);

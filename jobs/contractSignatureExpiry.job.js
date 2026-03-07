@@ -25,7 +25,7 @@ const run = async () => {
             const transaction = await sequelize.transaction();
             try {
                 await contract.update({
-                    status: 'CANCELLED',
+                    status: 'TERMINATED',
                     signature_expires_at: null
                 }, { transaction });
 

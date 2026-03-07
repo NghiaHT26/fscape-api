@@ -80,6 +80,41 @@ class AuthService {
     };
   }
 
+  static async appLogin(email, password) {
+    const auth = await AuthProvider.findOne({
+      where: { provider: "EMAIL", provider_id: email },
+      include: [
+        {
+          model: User,
+          as: "User",
+          attributes: ["id", "email", "role", "first_name", "last_name", "avatar_url", "is_active"],
+        },
+      ],
+    });
+
+    if (!auth || !auth.is_verified) throw new Error("Invalid credentials");
+    if (!auth.User) throw new Error("Invalid credentials");
+    if (auth.User.role !== "RESIDENT") throw new Error("Only resident accounts can login via app");
+    if (auth.User.is_active === false) throw new Error("User account is deactivated");
+
+    const match = await comparePassword(password, auth.password_hash);
+    if (!match) throw new Error("Invalid credentials");
+
+    await auth.User.update({ last_login_at: new Date() });
+
+    return {
+      access_token: generateAccessToken(auth.User),
+      user: {
+        id: auth.User.id,
+        email: auth.User.email,
+        role: auth.User.role,
+        first_name: auth.User.first_name,
+        last_name: auth.User.last_name,
+        avatar_url: auth.User.avatar_url,
+      },
+    };
+  }
+
   static async forgotPassword(email) {
     const otp = await generateOtp(email, "PASSWORD_RESET");
     await sendOtpMail(email, otp.code);
