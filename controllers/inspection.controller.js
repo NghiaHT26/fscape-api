@@ -33,11 +33,4 @@ const confirmInspection = async (req, res) => {
     } catch (err) { return handleError(res, err); }
 };
 
-const settleInspection = async (req, res) => {
-    try {
-        const result = await inspectionService.settleInspection(req.params.id, req.user);
-        return res.status(200).json({ message: 'Deposit deduction applied', data: result });
-    } catch (err) { return handleError(res, err); }
-};
-
-module.exports = { previewInspection, confirmInspection, settleInspection };
+module.exports = { previewInspection, confirmInspection };

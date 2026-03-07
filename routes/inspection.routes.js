@@ -11,6 +11,4 @@ router.post('/preview', authJwt, staffOrAbove, inspectionController.previewInspe
 
 router.post('/', authJwt, staffOrAbove, inspectionController.confirmInspection);
 
-router.post('/:id/settle', authJwt, staffOrAbove, inspectionController.settleInspection);
-
 module.exports = router;
