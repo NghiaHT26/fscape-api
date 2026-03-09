@@ -169,6 +169,55 @@ class AdminUserService {
   }
 
   // =========================
+  // GET AVAILABLE MANAGERS
+  // =========================
+  static async getAvailableManagers() {
+    const managers = await User.findAll({
+      where: {
+        role: ROLES.BUILDING_MANAGER,
+        is_active: true,
+        building_id: null,
+      },
+      attributes: ['id', 'email', 'first_name', 'last_name', 'phone'],
+      order: [['first_name', 'ASC']],
+    });
+
+    return managers;
+  }
+
+  // =========================
+  // GET USER STATS (counts by role + active/inactive)
+  // =========================
+  static async getUserStats(caller) {
+    const where = {};
+
+    if (caller.role === ROLES.BUILDING_MANAGER) {
+      if (!caller.building_id) throw new Error('Building manager is not assigned to any building');
+      where.building_id = caller.building_id;
+    }
+
+    const users = await User.findAll({
+      where,
+      attributes: ['role', 'is_active'],
+      raw: true,
+    });
+
+    const byRole = {};
+    let active = 0;
+    let inactive = 0;
+
+    for (const u of users) {
+      byRole[u.role] = (byRole[u.role] || 0) + 1;
+      if (u.is_active) active++;
+      else inactive++;
+    }
+
+    const byRoleArray = Object.entries(byRole).map(([role, count]) => ({ role, count }));
+
+    return { total: users.length, active, inactive, by_role: byRoleArray };
+  }
+
+  // =========================
   // UPDATE USER STATUS
   // =========================
   static async updateUserStatus(userId, isActive) {

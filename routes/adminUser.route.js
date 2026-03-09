@@ -8,6 +8,10 @@ const controller = require('../controllers/adminUser.controller');
 
 router.use(authJwt);
 
+router.get('/stats', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), controller.getUserStats);
+
+router.get('/available-managers', requireRoles(ROLES.ADMIN), controller.getAvailableManagers);
+
 router.post('/', requireRoles(ROLES.ADMIN), controller.createUser);
 
 router.get('/', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), controller.listUsers);

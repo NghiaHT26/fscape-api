@@ -130,7 +130,7 @@ const getBuildingById = async (id, user) => {
 };
 
 const createBuilding = async (data) => {
-    const { facilities, images, ...buildingData } = data;
+    const { facilities, images, manager_id, ...buildingData } = data;
 
     if (facilities && facilities.length > 20) {
         throw { status: 400, message: 'A building can have a maximum of 20 facilities' };
@@ -146,6 +146,15 @@ const createBuilding = async (data) => {
         throw { status: 409, message: `Building "${buildingData.name}" already exists` };
     }
 
+    // Validate manager if provided
+    if (manager_id) {
+        const manager = await User.findByPk(manager_id);
+        if (!manager) throw { status: 404, message: 'Manager not found' };
+        if (manager.role !== 'BUILDING_MANAGER') throw { status: 400, message: 'Selected user is not a building manager' };
+        if (!manager.is_active) throw { status: 400, message: 'Selected manager is inactive' };
+        if (manager.building_id) throw { status: 400, message: 'Selected manager is already assigned to another building' };
+    }
+
     const transaction = await sequelize.transaction();
 
     try {
@@ -159,6 +168,10 @@ const createBuilding = async (data) => {
         if (facilities && facilities.length > 0) {
             const facilityRecords = facilities.map(fId => ({ building_id: building.id, facility_id: fId }));
             await BuildingFacility.bulkCreate(facilityRecords, { transaction });
+        }
+
+        if (manager_id) {
+            await User.update({ building_id: building.id }, { where: { id: manager_id }, transaction });
         }
 
         await transaction.commit();
@@ -265,6 +278,33 @@ const getStaffsByBuilding = async (buildingId) => {
   });
 };
 
+const getBuildingStats = async () => {
+    const buildings = await Building.findAll({
+        attributes: ['location_id', 'is_active'],
+        include: [{ model: Location, as: 'location', attributes: ['id', 'name'] }],
+        raw: true,
+        nest: true,
+    });
+
+    let active = 0;
+    let inactive = 0;
+    const byLocation = {};
+
+    for (const b of buildings) {
+        if (b.is_active) active++;
+        else inactive++;
+
+        const locName = b.location?.name || 'Khác';
+        const locId = b.location_id;
+        if (!byLocation[locId]) byLocation[locId] = { location_id: locId, name: locName, count: 0 };
+        byLocation[locId].count++;
+    }
+
+    const by_location = Object.values(byLocation).sort((a, b) => b.count - a.count);
+
+    return { total: buildings.length, active, inactive, by_location };
+};
+
 module.exports = {
     getAllBuildings,
     getBuildingById,
@@ -272,5 +312,6 @@ module.exports = {
     updateBuilding,
     deleteBuilding,
     toggleBuildingStatus,
-    getStaffsByBuilding
+    getStaffsByBuilding,
+    getBuildingStats
 };

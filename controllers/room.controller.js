@@ -47,6 +47,46 @@ const createRoom = async (req, res) => {
     }
 };
 
+const createBatchRooms = async (req, res) => {
+    try {
+        const {
+            building_id, room_type_id, floor, count,
+            thumbnail_url, image_3d_url, blueprint_url, gallery_images
+        } = req.body;
+
+        if (!building_id || !room_type_id || floor === undefined || !count) {
+            return res.status(400).json({
+                message: 'Missing required fields: building_id, room_type_id, floor, count'
+            });
+        }
+
+        const parsedCount = Number(count);
+        if (!Number.isInteger(parsedCount) || parsedCount < 1 || parsedCount > 50) {
+            return res.status(400).json({
+                message: 'count must be an integer between 1 and 50'
+            });
+        }
+
+        const result = await roomService.createBatchRooms({
+            building_id,
+            room_type_id,
+            floor: Number(floor),
+            count: parsedCount,
+            thumbnail_url: thumbnail_url || null,
+            image_3d_url: image_3d_url || null,
+            blueprint_url: blueprint_url || null,
+            gallery_images: gallery_images || [],
+        });
+
+        return res.status(201).json({
+            message: `${result.count} rooms created successfully`,
+            data: result
+        });
+    } catch (err) {
+        return handleError(res, err);
+    }
+};
+
 const updateRoom = async (req, res) => {
     try {
         const updateData = { ...req.body };
@@ -122,6 +162,7 @@ module.exports = {
     getAllRooms,
     getRoomById,
     createRoom,
+    createBatchRooms,
     updateRoom,
     deleteRoom,
     toggleRoomStatus,

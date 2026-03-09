@@ -18,6 +18,24 @@ exports.listUsers = async (req, res) => {
   }
 };
 
+exports.getUserStats = async (req, res) => {
+  try {
+    const stats = await AdminUserService.getUserStats(req.user);
+    return res.json({ data: stats });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getAvailableManagers = async (req, res) => {
+  try {
+    const managers = await AdminUserService.getAvailableManagers();
+    return res.json({ data: managers });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
 exports.updateUserStatus = async (req, res) => {
   try {
     const { id } = req.params;

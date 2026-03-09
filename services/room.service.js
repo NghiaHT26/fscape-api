@@ -10,6 +10,7 @@ const Request = require('../models/request.model');
 const User = require('../models/user.model');
 
 const { ROLES } = require('../constants/roles');
+const { generateRoomNumbers } = require('../utils/roomNumber.util');
 
 // ─── Booking/Contract statuses that block delete or lock ──────
 const ACTIVE_BOOKING_STATUSES = ['PENDING', 'DEPOSIT_PAID'];
@@ -437,10 +438,68 @@ const getMyRooms = async (userId) => {
   return contracts;
 };
 
+// ─── POST /api/rooms/batch ──────────────────────────────────
+const createBatchRooms = async ({
+  building_id, room_type_id, floor, count,
+  thumbnail_url, image_3d_url, blueprint_url, gallery_images
+}) => {
+  const building = await Building.findByPk(building_id);
+  if (!building) throw { status: 404, message: 'Building not found' };
+
+  const roomType = await RoomType.findByPk(room_type_id);
+  if (!roomType) throw { status: 404, message: 'Room type not found' };
+
+  const existingRooms = await Room.findAll({
+    where: { building_id },
+    attributes: ['room_number'],
+    raw: true,
+  });
+  const existingNumbers = existingRooms.map(r => r.room_number);
+
+  const roomNumbers = generateRoomNumbers(floor, count, existingNumbers);
+
+  const transaction = await sequelize.transaction();
+  try {
+    const records = roomNumbers.map(num => ({
+      building_id,
+      room_type_id,
+      room_number: num,
+      floor,
+      status: 'AVAILABLE',
+      thumbnail_url: thumbnail_url || null,
+      image_3d_url: image_3d_url || null,
+      blueprint_url: blueprint_url || null,
+    }));
+
+    const created = await Room.bulkCreate(records, { transaction });
+
+    if (gallery_images && gallery_images.length > 0) {
+      const imageRecords = created.flatMap(room =>
+        gallery_images.map(url => ({ room_id: room.id, image_url: url }))
+      );
+      await RoomImage.bulkCreate(imageRecords, { transaction });
+    }
+
+    await transaction.commit();
+
+    return {
+      count: created.length,
+      room_numbers: roomNumbers,
+      floor,
+      building: { id: building.id, name: building.name },
+      room_type: { id: roomType.id, name: roomType.name },
+    };
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
+};
+
 module.exports = {
   getAllRooms,
   getRoomById,
   createRoom,
+  createBatchRooms,
   updateRoom,
   deleteRoom,
   toggleRoomStatus,

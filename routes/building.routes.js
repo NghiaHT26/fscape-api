@@ -8,6 +8,7 @@ const requireRoles = require('../middlewares/requireRoles');
 const { ROLES } = require('../constants/roles');
 
 router.get('/', authJwtOptional, buildingController.getAllBuildings);
+router.get('/stats', authJwt, requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), buildingController.getBuildingStats);
 
 router.get(
   "/:buildingId/staffs",

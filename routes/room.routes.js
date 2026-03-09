@@ -20,6 +20,8 @@ router.get("/building/:buildingId",
   roomController.getRoomsByBuilding
 );
 
+router.post('/batch', authJwt, requireAdmin, roomController.createBatchRooms);
+
 router.post('/', authJwt, requireAdmin, roomController.createRoom);
 
 router.put('/:id', authJwt, requireAdmin, roomController.updateRoom);

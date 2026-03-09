@@ -41,7 +41,8 @@ const createBuilding = async (req, res) => {
             thumbnail_url,
             is_active,
             images,
-            facilities
+            facilities,
+            manager_id
         } = req.body;
 
         if (!location_id || !name || !address || latitude === undefined || longitude === undefined) {
@@ -71,7 +72,8 @@ const createBuilding = async (req, res) => {
             thumbnail_url: thumbnail_url || null,
             is_active,
             images: images || [],
-            facilities: parsedFacilities
+            facilities: parsedFacilities,
+            manager_id: manager_id || null
         });
 
         return res.status(201).json({
@@ -156,6 +158,16 @@ const getStaffsInBuilding = async (req, res) => {
     });
   }
 };
+// GET /api/buildings/stats
+const getBuildingStats = async (req, res) => {
+    try {
+        const stats = await buildingService.getBuildingStats();
+        return res.status(200).json({ data: stats });
+    } catch (err) {
+        return handleError(res, err);
+    }
+};
+
 module.exports = {
     getAllBuildings,
     getBuildingById,
@@ -163,5 +175,6 @@ module.exports = {
     updateBuilding,
     deleteBuilding,
     toggleBuildingStatus,
-    getStaffsInBuilding
+    getStaffsInBuilding,
+    getBuildingStats
 };
