@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const contractSignatureExpiry = require('./contractSignatureExpiry.job');
+const contractExpiringSoon = require('./contractExpiringSoon.job');
 const bookingExpiry = require('./bookingExpiry.job');
 const invoiceGeneration = require('./invoiceGeneration.job');
 
@@ -19,6 +20,15 @@ function initCronJobs() {
             await bookingExpiry.run();
         } catch (err) {
             console.error('[CronScheduler] bookingExpiry error:', err.message);
+        }
+    });
+
+    // Contract expiring soon — daily at 3:00 AM
+    cron.schedule('0 3 * * *', async () => {
+        try {
+            await contractExpiringSoon.run();
+        } catch (err) {
+            console.error('[CronScheduler] contractExpiringSoon error:', err.message);
         }
     });
 

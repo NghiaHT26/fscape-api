@@ -7,6 +7,7 @@ const AssetInspection = require('../models/assetInspection.model');
 const Room = require('../models/room.model');
 const RoomTypeAsset = require('../models/roomTypeAsset.model');
 const Contract = require('../models/contract.model');
+const User = require('../models/user.model');
 const auditService = require('./audit.service');
 
 const { ROLES } = require('../constants/roles');
@@ -325,44 +326,71 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
             );
         }
 
-        let depositDeduction = null;
+        // ── Contract lookup (always, for deposit info + status update) ──
+        const contract = await Contract.findOne({
+            where: {
+                room_id: room.id,
+                status: { [Op.in]: ['ACTIVE', 'EXPIRING_SOON', 'FINISHED'] }
+            },
+            order: [['created_at', 'DESC']],
+            transaction
+        });
 
-        if (hasMissing) {
-            const contract = await Contract.findOne({
-                where: {
-                    room_id: room.id,
-                    status: { [Op.in]: ['ACTIVE', 'EXPIRING_SOON', 'FINISHED'] }
-                },
-                order: [['created_at', 'DESC']],
-                transaction
-            });
+        let depositInfo = null;
 
-            if (contract) {
-                const oldDeposit = Number(contract.deposit_amount);
-                const penalty = Number(diff.penalty_total);
-                const newDeposit = oldDeposit - penalty;
+        if (contract) {
+            const originalDeposit = Number(contract.deposit_amount);
+            const penalty = hasMissing ? Number(diff.penalty_total) : 0;
+            const finalDeposit = originalDeposit - penalty;
 
-                await contract.update({ deposit_amount: newDeposit }, { transaction });
+            // Deduct deposit if missing assets
+            if (hasMissing) {
+                await contract.update({ deposit_amount: finalDeposit }, { transaction });
 
                 await auditService.log({
                     user,
                     action: 'UPDATE',
                     entityType: 'contract',
                     entityId: contract.id,
-                    oldValue: { deposit_amount: oldDeposit },
-                    newValue: { deposit_amount: newDeposit, penalty_from_inspection: inspection.id },
+                    oldValue: { deposit_amount: originalDeposit },
+                    newValue: { deposit_amount: finalDeposit, penalty_from_inspection: inspection.id },
                 }, { transaction });
-
-                depositDeduction = {
-                    contract_id: contract.id,
-                    contract_number: contract.contract_number,
-                    old_deposit: oldDeposit,
-                    penalty_deducted: penalty,
-                    new_deposit: newDeposit,
-                    deficit: newDeposit < 0,
-                };
             }
+
+            // Contract → FINISHED
+            await contract.update({ status: 'FINISHED' }, { transaction });
+
+            // RESIDENT → CUSTOMER if no other active contracts
+            const otherActive = await Contract.count({
+                where: {
+                    customer_id: contract.customer_id,
+                    id: { [Op.ne]: contract.id },
+                    status: { [Op.in]: ['ACTIVE', 'EXPIRING_SOON'] }
+                },
+                transaction
+            });
+            if (otherActive === 0) {
+                await User.update(
+                    { role: 'CUSTOMER' },
+                    { where: { id: contract.customer_id, role: 'RESIDENT' }, transaction }
+                );
+            }
+
+            depositInfo = {
+                contract_id: contract.id,
+                contract_number: contract.contract_number,
+                original_deposit: originalDeposit,
+                penalty_deducted: penalty,
+                final_deposit: finalDeposit,
+                deficit: finalDeposit < 0,
+            };
         }
+
+        // Room → AVAILABLE
+        await Room.update(
+            { status: 'AVAILABLE' },
+            { where: { id: room.id }, transaction }
+        );
 
         await transaction.commit();
 
@@ -372,7 +400,7 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
             missing: diff.missing,
             extra: diff.extra,
             penalty_total: diff.penalty_total,
-            deposit_deduction: depositDeduction,
+            deposit_info: depositInfo,
             unknown_qr_codes: diff.unknown_qr_codes
         };
     } catch (error) {
