@@ -94,7 +94,8 @@ class AuthService {
 
     if (!auth || !auth.is_verified) throw new Error("Invalid credentials");
     if (!auth.User) throw new Error("Invalid credentials");
-    if (auth.User.role !== "RESIDENT") throw new Error("Only resident accounts can login via app");
+    const CLIENT_ROLES = ['CUSTOMER', 'RESIDENT'];
+    if (!CLIENT_ROLES.includes(auth.User.role)) throw new Error("Tài khoản nội bộ không được phép đăng nhập tại đây");
     if (auth.User.is_active === false) throw new Error("User account is deactivated");
 
     const match = await comparePassword(password, auth.password_hash);
