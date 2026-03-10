@@ -200,6 +200,19 @@ const confirmInspection = async (roomId, qrCodes, type, notes, user) => {
 async function confirmCheckIn(room, qrCodes, notes, user) {
     const { results, assetsToAssign, extra, unknown_qr_codes } = await computeCheckInDiff(room, qrCodes);
 
+    // Strict validation: all asset types must match template quantities exactly
+    const shortItems = results.filter(r => r.status === 'SHORT');
+    if (shortItems.length > 0) {
+        const details = shortItems
+            .map(r => `${r.asset_type_name}: cần ${r.expected}, scan ${r.actual}`)
+            .join('; ');
+        throw {
+            status: 400,
+            message: `Check-in thất bại — thiếu tài sản: ${details}`,
+            data: { results, extra, unknown_qr_codes }
+        };
+    }
+
     const transaction = await sequelize.transaction();
     try {
         const inspection = await AssetInspection.create({
