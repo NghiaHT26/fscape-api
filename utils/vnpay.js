@@ -49,12 +49,9 @@ function createPaymentUrl(params) {
 
   const paymentUrl = vnpUrl + "?" + qs.stringify(vnp_Params, { encode: true });
 
-  const rawSecret = process.env.VNP_HASH_SECRET || "";
-  console.log("[VNPay Debug] HASH_SECRET raw length:", rawSecret.length, "| trimmed length:", hashSecret.length);
-  console.log("[VNPay Debug] HASH_SECRET has \\r:", rawSecret.includes("\r"), "| has \\n:", rawSecret.includes("\n"));
-  console.log("[VNPay Debug] TMN_CODE:", tmnCode, "| length:", tmnCode.length);
-  console.log("[VNPay Debug] VNP_URL:", vnpUrl);
-  console.log("[VNPay Debug] RETURN_URL:", returnUrl);
+  console.log("[VNPay Debug] signData:", signData);
+  console.log("[VNPay Debug] ipAddr:", params.ipAddr);
+  console.log("[VNPay Debug] signed hash:", signed);
 
   return paymentUrl;
 }
