@@ -37,7 +37,7 @@ function createPaymentUrl(params) {
 
   vnp_Params = sortObject(vnp_Params);
 
-  const signData = qs.stringify(vnp_Params, { encode: false });
+  const signData = qs.stringify(vnp_Params, { encode: true });
 
   const hashSecret = (process.env.VNP_HASH_SECRET || "").trim();
   const vnpUrl = (process.env.VNP_URL || "").trim();
