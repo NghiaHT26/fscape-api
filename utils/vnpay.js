@@ -47,7 +47,7 @@ function createPaymentUrl(params) {
 
   vnp_Params["vnp_SecureHash"] = signed;
 
-  const paymentUrl = vnpUrl + "?" + qs.stringify(vnp_Params, { encode: true });
+  const paymentUrl = vnpUrl + "?" + qs.stringify(vnp_Params, { encode: false });
 
   console.log("[VNPay Debug] signData:", signData);
   console.log("[VNPay Debug] ipAddr:", params.ipAddr);
