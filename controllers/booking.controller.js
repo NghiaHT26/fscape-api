@@ -3,7 +3,7 @@ const paymentService = require('../services/payment.service');
 
 const createBooking = async (req, res) => {
     try {
-        const userId = req.user.id; // Giả sử đã có middleware xác thực
+        const userId = req.user.id; 
         const booking = await bookingService.createBooking(userId, req.body);
 
         // fix
