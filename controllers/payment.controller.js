@@ -1,17 +1,7 @@
 const { sequelize } = require("../config/db");
 const paymentService = require("../services/payment.service");
 const { verifyIpnSignature } = require('../utils/vnpay');
-const getClientIp = (req) => {
-    let ip = req.headers['x-forwarded-for'] ||
-        req.connection.remoteAddress ||
-        req.socket.remoteAddress ||
-        req.connection.socket.remoteAddress || '127.0.0.1';
-    if (ip.includes(',')) ip = ip.split(',')[0].trim();
-    if (ip === '::1') ip = '127.0.0.1';
-    if (ip.startsWith('::ffff:')) ip = ip.substring(7);
-    if (ip.length > 15) ip = '127.0.0.1';
-    return ip;
-};
+const getClientIp = () => "127.0.0.1";
 
 const createBookingPaymentUrl = async (req, res) => {
     try {
