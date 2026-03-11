@@ -6,6 +6,7 @@ const getClientIp = (req) => {
         req.connection.remoteAddress ||
         req.socket.remoteAddress ||
         req.connection.socket.remoteAddress || '127.0.0.1';
+    if (ip.includes(',')) ip = ip.split(',')[0].trim();
     if (ip === '::1') ip = '127.0.0.1';
     if (ip.startsWith('::ffff:')) ip = ip.substring(7);
     if (ip.length > 15) ip = '127.0.0.1';
