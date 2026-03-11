@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const emailAuditService = require('../services/emailAudit.service');
 
 if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
   throw new Error('MAIL credentials missing');
@@ -58,11 +59,32 @@ const wrapEmailTemplate = (bodyContent) => `
 </html>
 `;
 
+const sendMailWithAudit = async ({ to, subject, html, templateKey, context }) => {
+  try {
+    await transporter.sendMail({
+      from: `"FScape" <${process.env.MAIL_USER}>`,
+      to,
+      subject,
+      html,
+    });
+  } catch (error) {
+    await emailAuditService.logEmailFailure({
+      recipientEmail: to,
+      subject,
+      templateKey,
+      reason: error.message,
+      context
+    });
+    throw error;
+  }
+};
+
 exports.sendOtpMail = async (email, code) => {
-  await transporter.sendMail({
-    from: `"FScape" <${process.env.MAIL_USER}>`,
+  await sendMailWithAudit({
     to: email,
     subject: 'Mã xác thực OTP — FScape',
+    templateKey: 'OTP_VERIFICATION',
+    context: { flow: 'AUTH' },
     html: wrapEmailTemplate(`
       <h2 style="margin:0 0 8px; color:#011936;">Mã xác thực OTP</h2>
       <p style="margin:0 0 16px; color:#52525b;">Vui lòng sử dụng mã bên dưới để xác thực tài khoản của bạn:</p>
@@ -81,10 +103,11 @@ exports.sendOtpMail = async (email, code) => {
  * Gửi email thông báo cho BM rằng customer đã ký, mời BM ký xác nhận.
  */
 exports.sendManagerSigningEmail = async (email, { managerName, customerName, contractNumber, roomNumber, buildingName, signingUrl }) => {
-  await transporter.sendMail({
-    from: `"FScape" <${process.env.MAIL_USER}>`,
+  await sendMailWithAudit({
     to: email,
     subject: `Hợp đồng ${contractNumber} — Khách hàng đã ký, chờ bạn xác nhận`,
+    templateKey: 'CONTRACT_MANAGER_SIGNING',
+    context: { contractNumber, roomNumber, buildingName },
     html: wrapEmailTemplate(`
       <h2 style="margin:0 0 8px; color:#011936;">Xin chào ${managerName},</h2>
       <p style="margin:0 0 16px; color:#52525b;">
@@ -141,10 +164,11 @@ exports.sendManagerSigningEmail = async (email, { managerName, customerName, con
  * Gửi email xác nhận hợp đồng đã được kích hoạt cho resident.
  */
 exports.sendContractActivatedEmail = async (email, { customerName, contractNumber, roomNumber, buildingName, startDate }) => {
-  await transporter.sendMail({
-    from: `"FScape" <${process.env.MAIL_USER}>`,
+  await sendMailWithAudit({
     to: email,
     subject: `Hợp đồng ${contractNumber} — Đã kích hoạt thành công`,
+    templateKey: 'CONTRACT_ACTIVATED',
+    context: { contractNumber, roomNumber, buildingName },
     html: wrapEmailTemplate(`
       <h2 style="margin:0 0 8px; color:#011936;">Xin chào ${customerName},</h2>
       <p style="margin:0 0 16px; color:#52525b;">
@@ -190,10 +214,11 @@ exports.sendContractActivatedEmail = async (email, { customerName, contractNumbe
  * Gửi email mời ký hợp đồng cho customer.
  */
 exports.sendContractSigningEmail = async (email, { customerName, contractNumber, roomNumber, buildingName, signingUrl }) => {
-  await transporter.sendMail({
-    from: `"FScape" <${process.env.MAIL_USER}>`,
+  await sendMailWithAudit({
     to: email,
     subject: `Hợp đồng ${contractNumber} — Vui lòng ký xác nhận`,
+    templateKey: 'CONTRACT_CUSTOMER_SIGNING',
+    context: { contractNumber, roomNumber, buildingName },
     html: wrapEmailTemplate(`
       <h2 style="margin:0 0 8px; color:#011936;">Xin chào ${customerName},</h2>
       <p style="margin:0 0 16px; color:#52525b;">

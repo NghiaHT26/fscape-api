@@ -17,17 +17,20 @@ function createPaymentUrl(params) {
 
   const createDate = moment().format("YYYYMMDDHHmmss");
 
+  const tmnCode = (process.env.VNP_TMN_CODE || "").trim();
+  const returnUrl = (process.env.VNP_RETURN_URL || "").trim();
+
   let vnp_Params = {
     vnp_Version: "2.1.0",
     vnp_Command: "pay",
-    vnp_TmnCode: process.env.VNP_TMN_CODE,
+    vnp_TmnCode: tmnCode,
     vnp_Locale: "vn",
     vnp_CurrCode: "VND",
     vnp_TxnRef: params.txnRef,
     vnp_OrderInfo: params.orderInfo,
     vnp_OrderType: "other",
     vnp_Amount: Math.round(params.amount * 100),
-    vnp_ReturnUrl: process.env.VNP_RETURN_URL,
+    vnp_ReturnUrl: returnUrl,
     vnp_IpAddr: params.ipAddr,
     vnp_CreateDate: createDate
   };
@@ -36,17 +39,22 @@ function createPaymentUrl(params) {
 
   const signData = qs.stringify(vnp_Params, { encode: true });
 
-  const hmac = crypto.createHmac("sha512", process.env.VNP_HASH_SECRET);
+  const hashSecret = (process.env.VNP_HASH_SECRET || "").trim();
+  const vnpUrl = (process.env.VNP_URL || "").trim();
+
+  const hmac = crypto.createHmac("sha512", hashSecret);
   const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
 
   vnp_Params["vnp_SecureHash"] = signed;
 
-  const paymentUrl =
-    process.env.VNP_URL +
-    "?" +
-    qs.stringify(vnp_Params, { encode: true });
-    console.log("Return URL:", process.env.VNP_RETURN_URL);
-    console.log("VNPay Params:", vnp_Params);
+  const paymentUrl = vnpUrl + "?" + qs.stringify(vnp_Params, { encode: true });
+
+  console.log("[VNPay Debug] TMN_CODE:", tmnCode, "| length:", tmnCode.length);
+  console.log("[VNPay Debug] HASH_SECRET length:", hashSecret.length);
+  console.log("[VNPay Debug] VNP_URL:", vnpUrl);
+  console.log("[VNPay Debug] RETURN_URL:", returnUrl);
+  console.log("[VNPay Debug] signData:", signData);
+
   return paymentUrl;
 }
 function verifyIpnSignature(vnp_Params) {
@@ -59,10 +67,8 @@ function verifyIpnSignature(vnp_Params) {
 
   const signData = qs.stringify(sortedParams, { encode: true });
 
-  const hmac = crypto.createHmac(
-    "sha512",
-    process.env.VNP_HASH_SECRET
-  );
+  const hashSecret = (process.env.VNP_HASH_SECRET || "").trim();
+  const hmac = crypto.createHmac("sha512", hashSecret);
 
   const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
 
