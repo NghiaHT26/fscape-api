@@ -6,11 +6,8 @@ const createBooking = async (req, res) => {
         const userId = req.user.id; // Giả sử đã có middleware xác thực
         const booking = await bookingService.createBooking(userId, req.body);
 
-        // Tạo URL thanh toán VNPay ngay sau khi booking thành công
-        const ipAddr = req.headers['x-forwarded-for'] ||
-            req.connection.remoteAddress ||
-            req.socket.remoteAddress ||
-            req.connection.socket.remoteAddress;
+        // fix
+        const ipAddr = "127.0.0.1";
 
         const paymentResult = await paymentService.createBookingPaymentUrl(userId, booking.id, ipAddr);
 
