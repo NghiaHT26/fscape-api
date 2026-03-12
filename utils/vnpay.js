@@ -63,7 +63,7 @@ function verifyIpnSignature(vnp_Params) {
 
   const sortedParams = sortObject(vnp_Params);
 
-  const signData = qs.stringify(sortedParams, { encode: false });
+  const signData = qs.stringify(sortedParams, { encode: true });
 
   const hashSecret = (process.env.VNP_HASH_SECRET || "").trim();
   const hmac = crypto.createHmac("sha512", hashSecret);
