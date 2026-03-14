@@ -36,3 +36,17 @@ exports.changePassword = async (req, res) => {
     });
   }
 };
+
+exports.signupAdmin = async (req, res) => {
+  try {
+    const user = await InternalAuthService.createAdmin(req.body);
+    res.status(201).json({
+      message: 'Admin account created successfully',
+      data: user
+    });
+  } catch (err) {
+    res.status(400).json({
+      message: err.message,
+    });
+  }
+};

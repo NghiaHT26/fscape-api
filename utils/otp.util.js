@@ -5,21 +5,6 @@ const OTP_EXPIRE_MINUTES = 20;
 const OTP_LIMIT_PER_DAY = 5;
 
 exports.generateOtp = async (email, type) => {
-  const today = new Date();
-  today.setHours(0,0,0,0);
-
-  const count = await OtpCode.count({
-    where: {
-      email,
-      type,
-      createdAt: { [Op.gte]: today }
-    }
-  });
-
-  if (count >= OTP_LIMIT_PER_DAY) {
-    throw new Error('OTP request limit exceeded (5/day)');
-  }
-
   const code = Math.floor(100000 + Math.random() * 900000).toString();
 
   return OtpCode.create({

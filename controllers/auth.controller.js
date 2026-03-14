@@ -12,8 +12,8 @@ exports.signup = async (req, res) => {
 
 exports.verifySignup = async (req, res) => {
   try {
-    const { email, password, otp } = req.body;
-    const user = await AuthService.verifySignup(email, password, otp);
+    const { email, password, otp, fullName } = req.body;
+    const user = await AuthService.verifySignup(email, password, otp, fullName);
     res.status(201).json(user);
   } catch (e) {
     res.status(400).json({ message: e.message });

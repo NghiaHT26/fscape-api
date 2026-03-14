@@ -18,12 +18,27 @@ class AuthService {
   }
 
   // STEP 2: verify OTP + create user
-  static async verifySignup(email, password, otp) {
+  static async verifySignup(email, password, otp, fullName = "") {
     await verifyOtp(email, otp, "EMAIL_VERIFICATION");
+
+    let firstName = "";
+    let lastName = "";
+
+    if (fullName) {
+      const parts = fullName.trim().split(/\s+/);
+      if (parts.length > 1) {
+        firstName = parts.pop(); // Last word as given name
+        lastName = parts.join(" "); // Rest as family name + middle name
+      } else {
+        firstName = parts[0];
+      }
+    }
 
     const user = await User.create({
       email,
       role: "CUSTOMER",
+      first_name: firstName,
+      last_name: lastName,
     });
 
     await AuthProvider.create({
@@ -58,7 +73,7 @@ class AuthService {
     });
 
     if (!auth || !auth.is_verified) throw new Error("Invalid credentials");
-    if (!auth.User || auth.User.is_active === false){
+    if (!auth.User || auth.User.is_active === false) {
       if (auth.User.is_active === false) {
         console.log("Account is inactive", auth.User.id, auth.User.email, auth.User.is_active);
         throw new Error("User account is deactivated");
@@ -150,12 +165,19 @@ class AuthService {
     const payload = await verifyGoogleIdToken(idToken);
     const email = payload.email;
     const googleId = payload.sub;
+    const { given_name, family_name, picture } = payload;
 
     await verifyOtp(email, otpCode, OTP_TYPES.EMAIL_VERIFICATION);
 
     let user = await User.findOne({ where: { email } });
 
     if (user) {
+      // Sync names and avatar from Google if missing
+      if (!user.first_name) user.first_name = given_name;
+      if (!user.last_name) user.last_name = family_name;
+      if (!user.avatar_url) user.avatar_url = picture;
+      await user.save();
+
       const existingGoogleAuth = await AuthProvider.findOne({
         where: { provider: "GOOGLE", provider_id: googleId },
       });
@@ -176,6 +198,9 @@ class AuthService {
       user = await User.create({
         email,
         role: "CUSTOMER",
+        first_name: given_name,
+        last_name: family_name,
+        avatar_url: picture,
       });
       await AuthProvider.create({
         user_id: user.id,

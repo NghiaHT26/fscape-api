@@ -98,6 +98,51 @@ class InternalAuthService {
 
     return true;
   }
-}
+
+  // ========= CREATE ADMIN =========
+  static async createAdmin({ email, password, first_name, last_name, phone }) {
+      if (!email || !password || !first_name || !last_name || !phone) {
+        throw new Error("email, password, first_name, last_name, and phone are required");
+      }
+
+      const existed = await User.findOne({ where: { email } });
+      if (existed) {
+        throw new Error("Email already exists");
+      }
+
+      const { sequelize } = require('../config/db');
+
+      const result = await sequelize.transaction(async (t) => {
+        const createdUser = await User.create(
+          { email, role: "ADMIN", first_name, last_name, phone, is_active: true },
+          { transaction: t }
+        );
+
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        await AuthProvider.create(
+          {
+            user_id: createdUser.id,
+            provider: 'EMAIL',
+            provider_id: email,
+            password_hash: passwordHash,
+            is_verified: true,
+          },
+          { transaction: t }
+        );
+
+        return createdUser;
+      });
+
+      return {
+        id: result.id,
+        email: result.email,
+        role: result.role,
+        first_name: result.first_name,
+        last_name: result.last_name,
+        phone: result.phone,
+      };
+    }
+  }
 
 module.exports = InternalAuthService;
