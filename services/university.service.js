@@ -66,8 +66,15 @@ const getUniversityById = async (id) => {
 };
 
 const createUniversity = async (data) => {
-    const { name } = data;
-    const existing = await University.findOne({ where: { name } });
+    const { name, address } = data;
+
+    if (!address || !address.trim()) {
+        throw { status: 400, message: 'Address is required' };
+    }
+
+    const existing = await University.findOne({
+        where: { name: { [Op.iLike]: name } }
+    });
     if (existing) throw { status: 409, message: `University "${name}" already exists` };
 
     return await University.create(data);
@@ -78,8 +85,14 @@ const updateUniversity = async (id, data) => {
     if (!university) throw { status: 404, message: 'University not found' };
 
     if (data.name && data.name !== university.name) {
-        const duplicate = await University.findOne({ where: { name: data.name, id: { [Op.ne]: id } } });
-        if (duplicate) throw { status: 409, message: 'University name already exists' };
+        const duplicate = await University.findOne({
+            where: { name: { [Op.iLike]: data.name }, id: { [Op.ne]: id } }
+        });
+        if (duplicate) throw { status: 409, message: `University "${data.name}" already exists` };
+    }
+
+    if (data.address !== undefined && (!data.address || !data.address.trim())) {
+        throw { status: 400, message: 'Address is required' };
     }
 
     // Restrict what can be updated via generic PUT

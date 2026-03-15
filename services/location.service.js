@@ -60,7 +60,9 @@ const createLocation = async (data) => {
     const { Location } = sequelize.models;
     const { name } = data;
 
-    const existing = await Location.findOne({ where: { name } });
+    const existing = await Location.findOne({
+        where: { name: { [Op.iLike]: name } }
+    });
     if (existing) throw { status: 409, message: `Location "${name}" already exists` };
 
     return await Location.create(data);
@@ -76,7 +78,7 @@ const updateLocation = async (id, data) => {
 
     if (data.name && data.name !== location.name) {
         const duplicate = await Location.findOne({
-            where: { name: data.name, id: { [Op.ne]: id } }
+            where: { name: { [Op.iLike]: data.name }, id: { [Op.ne]: id } }
         });
         if (duplicate) throw { status: 409, message: `Location "${data.name}" already exists` };
     }

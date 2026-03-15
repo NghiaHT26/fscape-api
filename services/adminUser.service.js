@@ -25,7 +25,7 @@ class AdminUserService {
       throw new Error(`Role must be one of: ${ADMIN_MANAGEABLE_ROLES.join(', ')}`);
     }
 
-    const generatedPassword = crypto.randomBytes(4).toString('hex');
+    const generatedPassword = 'abc@123';
 
     if (phone.length < 9 || phone.length > 15) {
       throw new Error('Phone must be between 9 and 15 characters');

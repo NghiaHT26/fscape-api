@@ -46,7 +46,8 @@ const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_a
         include: [
             { model: Location, as: 'location', attributes: locationAttributes },
             { model: BuildingImage, as: 'images', attributes: ['id', 'image_url'] },
-            { model: Facility, as: 'facilities', through: { attributes: facilityThroughAttributes } }
+            { model: Facility, as: 'facilities', through: { attributes: facilityThroughAttributes } },
+            { model: User, as: 'manager', attributes: ['id', 'email', 'first_name', 'last_name', 'avatar_url'], where: { role: 'BUILDING_MANAGER' }, required: false }
         ],
         limit: Number(limit),
         offset: Number(offset),
@@ -102,10 +103,16 @@ const getBuildingById = async (id, user) => {
 
     if (!building) throw { status: 404, message: 'Building not found' };
 
-    const rooms = await Room.findAll({
-        where: { building_id: id },
-        order: [['floor', 'ASC'], ['room_number', 'ASC']]
-    });
+    const [rooms, nearbyUniversities] = await Promise.all([
+        Room.findAll({
+            where: { building_id: id },
+            order: [['floor', 'ASC'], ['room_number', 'ASC']]
+        }),
+        University.findAll({
+            where: { location_id: building.location_id, is_active: true },
+            attributes: ['id', 'name', 'address', 'latitude', 'longitude']
+        })
+    ]);
 
     const uniqueRoomTypeIds = [...new Set(rooms.map(room => room.room_type_id))];
 
@@ -115,11 +122,6 @@ const getBuildingById = async (id, user) => {
             where: { id: uniqueRoomTypeIds }
         });
     }
-
-    const nearbyUniversities = await University.findAll({
-        where: { location_id: building.location_id, is_active: true },
-        attributes: ['id', 'name', 'address', 'latitude', 'longitude']
-    });
 
     const buildingData = building.toJSON();
     buildingData.nearby_universities = nearbyUniversities;
@@ -175,7 +177,7 @@ const createBuilding = async (data) => {
         }
 
         await transaction.commit();
-        return getBuildingById(building.id);
+        return { id: building.id, name: building.name };
     } catch (error) {
         await transaction.rollback();
         throw error;
