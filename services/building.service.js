@@ -142,8 +142,8 @@ const createBuilding = async (data) => {
         throw { status: 400, message: 'A building can have a maximum of 100 floors' };
     }
 
-    // Check for duplicate building name
-    const existing = await Building.findOne({ where: { name: buildingData.name } });
+    // Check for duplicate building name (case-insensitive)
+    const existing = await Building.findOne({ where: { name: { [Op.iLike]: buildingData.name } } });
     if (existing) {
         throw { status: 409, message: `Building "${buildingData.name}" already exists` };
     }
@@ -198,9 +198,9 @@ const updateBuilding = async (id, data) => {
     const building = await Building.findByPk(id);
     if (!building) throw { status: 404, message: 'Building not found' };
 
-    // Check for duplicate name if renaming
-    if (updateData.name && updateData.name !== building.name) {
-        const duplicate = await Building.findOne({ where: { name: updateData.name, id: { [Op.ne]: id } } });
+    // Check for duplicate name if renaming (case-insensitive)
+    if (updateData.name && updateData.name.toLowerCase() !== building.name.toLowerCase()) {
+        const duplicate = await Building.findOne({ where: { name: { [Op.iLike]: updateData.name }, id: { [Op.ne]: id } } });
         if (duplicate) throw { status: 409, message: 'Building name already exists' };
     }
 

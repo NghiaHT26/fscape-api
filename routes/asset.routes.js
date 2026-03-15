@@ -10,6 +10,8 @@ router.get('/', authJwt, requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES
 
 router.get('/:id', authJwt, requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF), assetController.getAssetById);
 
+router.get('/public/:id', assetController.getPublicAssetInfo);
+
 router.post('/', authJwt, requireAdmin, assetController.createAsset);
 
 router.post('/batch', authJwt, requireAdmin, assetController.createBatchAssets);

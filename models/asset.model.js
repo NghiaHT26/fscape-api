@@ -8,22 +8,20 @@ const Asset = sequelize.define('Asset', {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
-    building_id: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      references: {
-        model: 'buildings',
-        key: 'id'
-      }
-    },
+
     qr_code: {
-      type: DataTypes.STRING(100),
+      type: DataTypes.STRING(500),
       allowNull: false,
       unique: "assets_qr_code_key"
     },
     name: {
-      type: DataTypes.STRING(255),
-      allowNull: false
+      type: DataTypes.STRING(500),
+      allowNull: false,
+      trim: true
+    },
+    image_url: {
+      type: DataTypes.STRING(500),
+      allowNull: true
     },
     price: {
       type: DataTypes.DECIMAL,
@@ -70,12 +68,7 @@ const Asset = sequelize.define('Asset', {
           { name: "qr_code" },
         ]
       },
-      {
-        name: "idx_assets_building_id",
-        fields: [
-          { name: "building_id" },
-        ]
-      },
+
       {
         name: "idx_assets_current_room_id",
         fields: [
@@ -102,7 +95,6 @@ const Asset = sequelize.define('Asset', {
   });
 
 Asset.associate = (models) => {
-  Asset.belongsTo(models.Building, { foreignKey: 'building_id', as: 'building' });
   Asset.belongsTo(models.Room, { foreignKey: 'current_room_id', as: 'room' });
   Asset.belongsTo(models.AssetType, { foreignKey: 'asset_type_id', as: 'asset_type' });
   Asset.hasMany(models.AssetHistory, { foreignKey: 'asset_id', as: 'histories' });

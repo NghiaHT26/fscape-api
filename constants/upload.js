@@ -68,6 +68,12 @@ const UPLOAD_CATEGORIES = {
     mimePattern: /^image\/png$/,
     folder: 'signatures',
   },
+  assets: {
+    maxFiles: 1,
+    maxSize: 5 * 1024 * 1024,
+    mimePattern: /^image\//,
+    folder: 'assets',
+  },
 };
 
 module.exports = { UPLOAD_CATEGORIES };

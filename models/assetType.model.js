@@ -9,18 +9,14 @@ const AssetType = sequelize.define('AssetType', {
     primaryKey: true
   },
   name: {
-    type: DataTypes.STRING(255),
+    type: DataTypes.STRING(500),
     allowNull: false
   },
   description: {
     type: DataTypes.TEXT,
     allowNull: true
   },
-  default_price: {
-    type: DataTypes.DECIMAL,
-    allowNull: false,
-    defaultValue: 0
-  },
+
   is_active: {
     type: DataTypes.BOOLEAN,
     allowNull: false,

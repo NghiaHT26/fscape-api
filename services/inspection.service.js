@@ -27,7 +27,7 @@ function resolveScannedAssets(qrCodes) {
     if (!qrCodes || qrCodes.length === 0) return Promise.resolve([]);
     return Asset.findAll({
         where: { qr_code: { [Op.in]: qrCodes } },
-        include: [{ model: AssetType, as: 'asset_type', attributes: ['id', 'name', 'default_price'] }]
+        include: [{ model: AssetType, as: 'asset_type', attributes: ['id', 'name'] }]
     });
 }
 
@@ -40,7 +40,7 @@ function findUnknownQrCodes(qrCodes, scannedAssets) {
 async function computeCheckInDiff(room, qrCodes) {
     const template = await RoomTypeAsset.findAll({
         where: { room_type_id: room.room_type_id },
-        include: [{ model: AssetType, as: 'asset_type', attributes: ['id', 'name', 'default_price'] }]
+        include: [{ model: AssetType, as: 'asset_type', attributes: ['id', 'name'] }]
     });
 
     const scannedAssets = await resolveScannedAssets(qrCodes);
@@ -109,7 +109,7 @@ async function computeCheckOutDiff(room, qrCodes) {
     // Assets currently linked to this room
     const expectedAssets = await Asset.findAll({
         where: { current_room_id: room.id },
-        include: [{ model: AssetType, as: 'asset_type', attributes: ['id', 'name', 'default_price'] }]
+        include: [{ model: AssetType, as: 'asset_type', attributes: ['id', 'name'] }]
     });
 
     const scannedAssets = await resolveScannedAssets(qrCodes);
@@ -138,7 +138,7 @@ async function computeCheckOutDiff(room, qrCodes) {
     // Penalty = sum of default_price for missing assets
     let penaltyTotal = 0;
     const missingDetails = missing.map(a => {
-        const price = Number(a.asset_type?.default_price || a.price || 0);
+        const price = Number(a.price || 0);
         penaltyTotal += price;
         return {
             id: a.id,

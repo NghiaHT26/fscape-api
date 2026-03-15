@@ -67,101 +67,77 @@ const getRoomTypeById = async (id, user) => {
 }
 
 const createRoomType = async (data) => {
-
-    if (!data.name) {
-        throw { status: 400, message: 'Room type name is required' }
+    // 1. Check for required fields
+    const requiredFields = ['name', 'base_price', 'deposit_months', 'capacity_min', 'capacity_max', 'bedrooms', 'bathrooms', 'area_sqm'];
+    for (const field of requiredFields) {
+        if (data[field] === undefined || data[field] === null || data[field] === '') {
+            throw { status: 400, message: `Trường ${field} là bắt buộc` }
+        }
     }
 
     const duplicate = await RoomType.findOne({ where: { name: data.name } })
     if (duplicate) {
-        throw { status: 409, message: `Room type "${data.name}" already exists` }
+        throw { status: 409, message: `Loại phòng "${data.name}" đã tồn tại` }
     }
 
-    if (data.base_price < 0 || data.base_price > 999999999999) {
-        throw { status: 400, message: 'base_price must be between 0 and 999,999,999,999' }
+    // 2. Validate values
+    if (Number(data.base_price) < 0) {
+        throw { status: 400, message: 'Giá cơ bản phải lớn hơn hoặc bằng 0' }
     }
 
-    // Force deposit_months to 1
-    data.deposit_months = 1
+    const cMin = Number(data.capacity_min);
+    const cMax = Number(data.capacity_max);
+    if (cMin < 1 || cMin > 6) throw { status: 400, message: 'Sức chứa tối thiểu phải từ 1 đến 6' };
+    if (cMax < 1 || cMax > 6) throw { status: 400, message: 'Sức chứa tối đa phải từ 1 đến 6' };
+    if (cMin > cMax) throw { status: 400, message: 'Sức chứa tối thiểu không được lớn hơn sức chứa tối đa' };
 
-    if (data.capacity_min !== undefined && (data.capacity_min < 1 || data.capacity_min > 10)) {
-        throw { status: 400, message: 'capacity_min must be between 1 and 10' }
-    }
+    const beds = Number(data.bedrooms);
+    const baths = Number(data.bathrooms);
+    if (![0, 1, 2, 3].includes(beds)) throw { status: 400, message: 'Số phòng ngủ chỉ được từ 0 đến 3' };
+    if (![0, 1, 2, 3].includes(baths)) throw { status: 400, message: 'Số phòng tắm chỉ được từ 0 đến 3' };
 
-    if (data.capacity_max !== undefined && (data.capacity_max < 1 || data.capacity_max > 10)) {
-        throw { status: 400, message: 'capacity_max must be between 1 and 10' }
-    }
-
-    const capacityMin = data.capacity_min || 1
-    const capacityMax = data.capacity_max || 1
-    if (capacityMin > capacityMax) {
-        throw { status: 400, message: 'capacity_min must be <= capacity_max' }
-    }
-
-    if (data.bedrooms !== undefined && (data.bedrooms < 1 || data.bedrooms > 10)) {
-        throw { status: 400, message: 'bedrooms must be between 1 and 10' }
-    }
-
-    if (data.bathrooms !== undefined && (data.bathrooms < 1 || data.bathrooms > 10)) {
-        throw { status: 400, message: 'bathrooms must be between 1 and 10' }
-    }
-
-    if (data.area_sqm !== undefined && (data.area_sqm <= 0 || data.area_sqm > 1000)) {
-        throw { status: 400, message: 'area_sqm must be > 0 and <= 1000' }
-    }
+    const area = Number(data.area_sqm);
+    if (area <= 0 || area > 100) throw { status: 400, message: 'Diện tích phải lớn hơn 0 và không quá 100m²' };
 
     const roomType = await RoomType.create(data)
-
     return roomType
 }
 
 const updateRoomType = async (id, data) => {
-
     const roomType = await RoomType.findByPk(id)
-    if (!roomType) throw { status: 404, message: 'Room type not found' }
+    if (!roomType) throw { status: 404, message: 'Không tìm thấy loại phòng' }
 
     if (data.name && data.name !== roomType.name) {
         const duplicate = await RoomType.findOne({ where: { name: data.name, id: { [Op.ne]: id } } })
         if (duplicate) {
-            throw { status: 409, message: `Room type "${data.name}" already exists` }
+            throw { status: 409, message: `Loại phòng "${data.name}" đã tồn tại` }
         }
     }
 
-    if (data.base_price !== undefined && (data.base_price < 0 || data.base_price > 999999999999)) {
-        throw { status: 400, message: 'base_price must be between 0 and 999,999,999,999' }
+    if (data.base_price !== undefined && Number(data.base_price) < 0) {
+        throw { status: 400, message: 'Giá cơ bản phải lớn hơn hoặc bằng 0' }
     }
 
-    // Prevent changing deposit_months
-    delete data.deposit_months
+    const cMin = data.capacity_min !== undefined ? Number(data.capacity_min) : roomType.capacity_min;
+    const cMax = data.capacity_max !== undefined ? Number(data.capacity_max) : roomType.capacity_max;
+    
+    if (data.capacity_min !== undefined && (cMin < 1 || cMin > 6)) throw { status: 400, message: 'Sức chứa tối thiểu phải từ 1 đến 6' };
+    if (data.capacity_max !== undefined && (cMax < 1 || cMax > 6)) throw { status: 400, message: 'Sức chứa tối đa phải từ 1 đến 6' };
+    if (cMin > cMax) throw { status: 400, message: 'Sức chứa tối thiểu không được lớn hơn sức chứa tối đa' };
 
-    if (data.capacity_min !== undefined && (data.capacity_min < 1 || data.capacity_min > 10)) {
-        throw { status: 400, message: 'capacity_min must be between 1 and 10' }
+    if (data.bedrooms !== undefined && ![0, 1, 2, 3].includes(Number(data.bedrooms))) {
+        throw { status: 400, message: 'Số phòng ngủ chỉ được từ 0 đến 3' };
+    }
+    if (data.bathrooms !== undefined && ![0, 1, 2, 3].includes(Number(data.bathrooms))) {
+        throw { status: 400, message: 'Số phòng tắm chỉ được từ 0 đến 3' };
     }
 
-    if (data.capacity_max !== undefined && (data.capacity_max < 1 || data.capacity_max > 10)) {
-        throw { status: 400, message: 'capacity_max must be between 1 and 10' }
-    }
-
-    const capacityMin = data.capacity_min ?? roomType.capacity_min
-    const capacityMax = data.capacity_max ?? roomType.capacity_max
-    if (capacityMin > capacityMax) {
-        throw { status: 400, message: 'capacity_min must be <= capacity_max' }
-    }
-
-    if (data.bedrooms !== undefined && (data.bedrooms < 1 || data.bedrooms > 10)) {
-        throw { status: 400, message: 'bedrooms must be between 1 and 10' }
-    }
-
-    if (data.bathrooms !== undefined && (data.bathrooms < 1 || data.bathrooms > 10)) {
-        throw { status: 400, message: 'bathrooms must be between 1 and 10' }
-    }
-
-    if (data.area_sqm !== undefined && (data.area_sqm <= 0 || data.area_sqm > 1000)) {
-        throw { status: 400, message: 'area_sqm must be > 0 and <= 1000' }
+    if (data.area_sqm !== undefined) {
+        const area = Number(data.area_sqm);
+        if (area <= 0 || area > 100) throw { status: 400, message: 'Diện tích phải lớn hơn 0 và không quá 100m²' };
     }
 
     await roomType.update(data)
-
     return roomType
 }
 
@@ -184,7 +160,7 @@ const getTemplateAssets = async (roomTypeId) => {
 
     const items = await RoomTypeAsset.findAll({
         where: { room_type_id: roomTypeId },
-        include: [{ model: AssetType, as: 'asset_type', attributes: ['id', 'name', 'default_price'] }],
+        include: [{ model: AssetType, as: 'asset_type', attributes: ['id', 'name'] }],
         attributes: ['id', 'quantity']
     })
 

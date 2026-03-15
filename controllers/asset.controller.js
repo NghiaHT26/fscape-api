@@ -21,9 +21,9 @@ const getAssetById = async (req, res) => {
 
 const createAsset = async (req, res) => {
     try {
-        const { name, building_id } = req.body;
-        if (!name || !building_id) {
-            return res.status(400).json({ message: 'Name and Building ID are required' });
+        const { name } = req.body;
+        if (!name) {
+            return res.status(400).json({ message: 'Name is required' });
         }
         const asset = await assetService.createAsset(req.body);
         return res.status(201).json({ message: 'Asset created', data: asset });
@@ -32,11 +32,11 @@ const createAsset = async (req, res) => {
 
 const createBatchAssets = async (req, res) => {
     try {
-        const { name, building_id, asset_type_id, quantity, price } = req.body;
-        if (!name || !building_id) {
-            return res.status(400).json({ message: 'name and building_id are required' });
+        const { name, asset_type_id, quantity, price, image_url } = req.body;
+        if (!name) {
+            return res.status(400).json({ message: 'name is required' });
         }
-        const result = await assetService.createBatchAssets({ name, building_id, asset_type_id, quantity, price });
+        const result = await assetService.createBatchAssets({ name, asset_type_id, quantity, price, image_url });
         return res.status(201).json({ message: `${result.count} assets created`, ...result });
     } catch (err) { return handleError(res, err); }
 };
@@ -63,4 +63,20 @@ const deleteAsset = async (req, res) => {
     } catch (err) { return handleError(res, err); }
 };
 
-module.exports = { getAllAssets, getAssetById, createAsset, createBatchAssets, updateAsset, assignAsset, deleteAsset };
+const getPublicAssetInfo = async (req, res) => {
+    try {
+        const asset = await assetService.getPublicAssetInfo(req.params.id);
+        return res.status(200).json({ data: asset });
+    } catch (err) { return handleError(res, err); }
+};
+
+module.exports = { 
+    getAllAssets, 
+    getAssetById, 
+    getPublicAssetInfo,
+    createAsset, 
+    createBatchAssets, 
+    updateAsset, 
+    assignAsset, 
+    deleteAsset 
+};
