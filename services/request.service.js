@@ -157,6 +157,37 @@ const getAllRequests = async (caller, { page = 1, limit = 10, status, request_ty
     };
 };
 
+const getMyRequests = async (userId, { page = 1, limit = 10, status, request_type } = {}) => {
+    const offset = (page - 1) * limit;
+    const where = { resident_id: userId };
+    if (status) where.status = status;
+    if (request_type) where.request_type = request_type;
+
+    const { count, rows } = await Request.findAndCountAll({
+        where,
+        include: [
+            {
+                model: Room, as: 'room',
+                attributes: ['id', 'room_number', 'floor', 'building_id'],
+                include: [{ model: Building, as: 'building', attributes: ['id', 'name'] }]
+            },
+            { model: User, as: 'staff', attributes: ['id', 'first_name', 'last_name'] },
+            { model: RequestImage, as: 'images' }
+        ],
+        limit: Number(limit),
+        offset: Number(offset),
+        order: [['createdAt', 'DESC']]
+    });
+
+    return {
+        total: count,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(count / limit),
+        data: rows
+    };
+};
+
 const getRequestById = async (caller, id) => {
     const request = await Request.findByPk(id, {
         include: [
@@ -424,6 +455,7 @@ const updateRequestStatus = async (id, updateData) => {
 
 module.exports = {
     getAllRequests,
+    getMyRequests,
     getRequestById,
     createRequest,
     assignRequest,

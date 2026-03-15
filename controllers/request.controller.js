@@ -16,6 +16,15 @@ const getAllRequests = async (req, res) => {
     }
 };
 
+const getMyRequests = async (req, res) => {
+    try {
+        const result = await requestService.getMyRequests(req.user.id, req.query);
+        return res.status(200).json({ ...result });
+    } catch (err) {
+        return handleError(res, err);
+    }
+};
+
 const getRequestById = async (req, res) => {
     try {
         const request = await requestService.getRequestById(req.user, req.params.id);
@@ -102,6 +111,7 @@ const updateRequestStatus = async (req, res) => {
 
 module.exports = {
     getAllRequests,
+    getMyRequests,
     getRequestById,
     createRequest,
     assignRequest,
