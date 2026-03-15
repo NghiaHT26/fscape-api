@@ -2,6 +2,8 @@ const { sequelize } = require('../config/db');
 const { Op } = require('sequelize');
 const moment = require('moment');
 const { generateNumberedId } = require('../utils/generateId');
+const { billingCycleToMonths } = require('../utils/billingCycle.util');
+const { parseLocalDate } = require('../utils/date.util');
 
 /**
  * Job tạo hóa đơn định kỳ cho các hợp đồng đến hạn.
@@ -31,9 +33,12 @@ const generatePeriodicInvoices = async () => {
             // 1. Xác định kỳ thu tiền
             const billingPeriodStart = contract.next_billing_date;
 
-            let monthsToAdd = 1;
-            if (contract.billing_cycle === 'SEMI_ANNUALLY') monthsToAdd = 6;
-            else if (contract.billing_cycle === 'QUARTERLY') monthsToAdd = 3;
+            const monthsToAdd = billingCycleToMonths(contract.billing_cycle);
+            if (monthsToAdd == null) {
+                // ALL_IN contracts do not generate periodic rent invoices.
+                await transaction.rollback();
+                continue;
+            }
 
             const billingPeriodEnd = moment(billingPeriodStart).add(monthsToAdd, 'months').subtract(1, 'days').format('YYYY-MM-DD');
             const nextBillingDate = moment(billingPeriodStart).add(monthsToAdd, 'months').format('YYYY-MM-DD');
@@ -48,8 +53,8 @@ const generatePeriodicInvoices = async () => {
                     room_id: contract.room_id,
                     status: 'COMPLETED',
                     updated_at: {
-                        [Op.gte]: new Date(lastBilledDate),
-                        [Op.lt]: new Date(billingPeriodStart)
+                        [Op.gte]: parseLocalDate(lastBilledDate),
+                        [Op.lt]: parseLocalDate(billingPeriodStart)
                     }
                 },
                 transaction
