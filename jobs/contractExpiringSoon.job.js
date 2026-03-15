@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const { sequelize } = require('../config/db');
 const { createNotification } = require('../services/notification.service');
 const { parseLocalDate } = require('../utils/date.util');
+const { sendContractExpiringSoonEmail } = require('../utils/mail.util');
 
 const EXPIRY_THRESHOLD_DAYS = 30;
 
@@ -38,21 +39,9 @@ const run = async () => {
             try {
                 await contract.update({ status: 'FINISHED' }, { transaction });
 
-                // RESIDENT → CUSTOMER if no other active contracts
-                const otherActive = await Contract.count({
-                    where: {
-                        customer_id: contract.customer_id,
-                        id: { [Op.ne]: contract.id },
-                        status: { [Op.in]: ['ACTIVE', 'EXPIRING_SOON'] }
-                    },
-                    transaction
-                });
-                if (otherActive === 0) {
-                    await User.update(
-                        { role: 'CUSTOMER' },
-                        { where: { id: contract.customer_id, role: 'RESIDENT' }, transaction }
-                    );
-                }
+                // Note: RESIDENT → CUSTOMER demotion is NOT done here.
+                // Demotion happens in the staff checkout flow (inspection.service.js → confirmCheckOut)
+                // because the resident still needs app access for checkout request, asset inspection, and final settlement.
 
                 await transaction.commit();
                 processed++;
@@ -75,7 +64,7 @@ const run = async () => {
                     await createNotification({
                         type: 'CONTRACT_FINISHED',
                         title: 'Hợp đồng đã kết thúc',
-                        content: `Hợp đồng ${contract.contract_number} phòng ${contract.room?.room_number || ''} đã hết hạn. Vui lòng liên hệ staff để thực hiện checkout.`,
+                        content: `Hợp đồng ${contract.contract_number} phòng ${contract.room?.room_number || ''} đã hết hạn. Vui lòng tạo yêu cầu checkout để staff kiểm tra tài sản và hoàn tất thủ tục trả phòng.`,
                         target_type: 'CONTRACT',
                         target_id: contract.id,
                         specific_user_ids: recipientIds
@@ -98,7 +87,11 @@ const run = async () => {
                 end_date: { [Op.lte]: thresholdDate }
             },
             include: [
-                { model: Room, as: 'room', attributes: ['id', 'room_number', 'building_id'] }
+                { model: User, as: 'customer', attributes: ['id', 'email', 'first_name', 'last_name'] },
+                {
+                    model: Room, as: 'room', attributes: ['id', 'room_number', 'building_id'],
+                    include: [{ model: sequelize.models.Building, as: 'building', attributes: ['id', 'name'] }]
+                }
             ]
         });
 
@@ -111,6 +104,7 @@ const run = async () => {
                 processed++;
 
                 // Notification (outside transaction)
+                const endDate = parseLocalDate(contract.end_date).toLocaleDateString('vi-VN');
                 try {
                     const recipientIds = [contract.customer_id];
                     if (contract.room?.building_id) {
@@ -125,7 +119,6 @@ const run = async () => {
                         recipientIds.push(...bms.map(bm => bm.id));
                     }
 
-                    const endDate = parseLocalDate(contract.end_date).toLocaleDateString('vi-VN');
                     await createNotification({
                         type: 'CONTRACT_EXPIRING_SOON',
                         title: 'Hợp đồng sắp hết hạn',
@@ -136,6 +129,23 @@ const run = async () => {
                     });
                 } catch (notifErr) {
                     console.error(`[ContractExpiryJob] Notification failed for ${contract.contract_number}:`, notifErr.message);
+                }
+
+                // Send email to resident
+                try {
+                    if (contract.customer?.email) {
+                        const customerName = `${contract.customer.last_name || ''} ${contract.customer.first_name || ''}`.trim();
+                        await sendContractExpiringSoonEmail(contract.customer.email, {
+                            customerName,
+                            contractNumber: contract.contract_number,
+                            contractId: contract.id,
+                            roomNumber: contract.room?.room_number || '',
+                            buildingName: contract.room?.building?.name || '',
+                            endDate
+                        });
+                    }
+                } catch (emailErr) {
+                    console.error(`[ContractExpiryJob] Email failed for ${contract.contract_number}:`, emailErr.message);
                 }
 
                 console.log(`[ContractExpiryJob] ${contract.contract_number} → EXPIRING_SOON`);

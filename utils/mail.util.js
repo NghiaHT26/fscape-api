@@ -440,6 +440,60 @@ exports.sendRenewalSigningEmail = async (email, { customerName, contractNumber, 
   });
 };
 
+/**
+ * Gửi email thông báo hợp đồng sắp hết hạn cho resident.
+ */
+exports.sendContractExpiringSoonEmail = async (email, { customerName, contractNumber, contractId, roomNumber, buildingName, endDate }) => {
+  if (await wasEmailSent('CONTRACT_EXPIRING_SOON', contractId)) return;
+  const subject = `Hợp đồng ${contractNumber} — Sắp hết hạn vào ${endDate}`;
+  await sendMailWithAudit({
+    to: email,
+    subject,
+    templateKey: 'CONTRACT_EXPIRING_SOON',
+    context: { contractNumber, roomNumber, buildingName },
+    html: wrapEmailTemplate(`
+      <h2 style="margin:0 0 8px; color:#011936;">Xin chào ${customerName},</h2>
+      <p style="margin:0 0 16px; color:#52525b;">
+        Hợp đồng thuê phòng của bạn sẽ hết hạn vào ngày <strong style="color:#ea580c;">${endDate}</strong>.
+        Nếu bạn muốn tiếp tục ở lại, vui lòng gia hạn hợp đồng trên ứng dụng FScape trước khi hết hạn.
+      </p>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fff7ed; border:1px solid #fdba74; border-radius:8px; margin:0 0 24px;">
+        <tr>
+          <td style="padding:16px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding:4px 0; color:#64748b; font-size:13px;">Số hợp đồng</td>
+                <td style="padding:4px 0; text-align:right; font-weight:600; color:#011936;">${contractNumber}</td>
+              </tr>
+              <tr>
+                <td style="padding:4px 0; color:#64748b; font-size:13px;">Phòng</td>
+                <td style="padding:4px 0; text-align:right; font-weight:600; color:#011936;">${roomNumber}</td>
+              </tr>
+              <tr>
+                <td style="padding:4px 0; color:#64748b; font-size:13px;">Tòa nhà</td>
+                <td style="padding:4px 0; text-align:right; font-weight:600; color:#011936;">${buildingName}</td>
+              </tr>
+              <tr>
+                <td style="padding:4px 0; color:#64748b; font-size:13px;">Ngày hết hạn</td>
+                <td style="padding:4px 0; text-align:right; font-weight:700; color:#ea580c; font-size:15px;">${endDate}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <p style="margin:0 0 8px; color:#52525b;">
+        Vui lòng mở ứng dụng FScape và vào mục <strong>Hợp đồng của tôi</strong> để thực hiện gia hạn.
+      </p>
+      <p style="margin:0; color:#71717a; font-size:13px;">
+        Nếu không gia hạn, hợp đồng sẽ tự động kết thúc khi hết hạn và phòng sẽ được trả lại.
+      </p>
+    `),
+  });
+  await logEmailSent(email, subject, 'CONTRACT_EXPIRING_SOON', contractId);
+};
+
 // ── Signing Reminder & Cancellation Emails ──
 
 exports.sendSigningReminderEmail = async (email, { customerName, contractNumber, contractId, roomNumber, buildingName, hoursRemaining, signingUrl }) => {
