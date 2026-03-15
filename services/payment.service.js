@@ -54,6 +54,7 @@ const createInvoicePaymentUrl = async (userId, invoiceId, ipAddr) => {
         throw { status: 404, message: "Không tìm thấy hóa đơn cần thanh toán" };
     }
 
+    const paymentType = invoice.invoice_type === 'SERVICE' ? 'SERVICE' : 'RENT';
     const paymentNumber = `PAY-INV-${Date.now()}`;
     const payment = await Payment.create({
         payment_number: paymentNumber,
@@ -61,7 +62,7 @@ const createInvoicePaymentUrl = async (userId, invoiceId, ipAddr) => {
         contract_id: invoice.contract_id,
         user_id: userId,
         amount: invoice.total_amount,
-        payment_type: 'RENT',
+        payment_type: paymentType,
         status: 'PENDING'
     });
 
@@ -139,8 +140,8 @@ const vnpayIpn = async (query) => {
                 }, { transaction });
                 depositPaidBookingId = booking.id;
             }
-        } else if (payment.payment_type === 'RENT') {
-            // Xử lý Hóa đơn
+        } else if (payment.payment_type === 'RENT' || payment.payment_type === 'SERVICE') {
+            // Xử lý Hóa đơn (rent hoặc service)
             const invoice = await Invoice.findByPk(payment.invoice_id, { transaction });
             if (invoice) {
                 await invoice.update({
