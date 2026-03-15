@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/db');
 const { createNotification } = require('../services/notification.service');
+const { parseLocalDate } = require('../utils/date.util');
 
 const EXPIRY_THRESHOLD_DAYS = 30;
 
@@ -124,7 +125,7 @@ const run = async () => {
                         recipientIds.push(...bms.map(bm => bm.id));
                     }
 
-                    const endDate = new Date(contract.end_date).toLocaleDateString('vi-VN');
+                    const endDate = parseLocalDate(contract.end_date).toLocaleDateString('vi-VN');
                     await createNotification({
                         type: 'CONTRACT_EXPIRING_SOON',
                         title: 'Hợp đồng sắp hết hạn',
