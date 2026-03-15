@@ -66,7 +66,12 @@ const getUniversityById = async (id) => {
 };
 
 const createUniversity = async (data) => {
-    const { name } = data;
+    const { name, location_id, address } = data;
+
+    if (!name) throw { status: 400, message: 'University name is required' };
+    if (!location_id) throw { status: 400, message: 'Location ID is required' };
+    if (!address) throw { status: 400, message: 'Address is required' };
+
     const existing = await University.findOne({ where: { name } });
     if (existing) throw { status: 409, message: `University "${name}" already exists` };
 
@@ -76,6 +81,10 @@ const createUniversity = async (data) => {
 const updateUniversity = async (id, data) => {
     const university = await University.findByPk(id);
     if (!university) throw { status: 404, message: 'University not found' };
+
+    if (data.name !== undefined && !data.name) throw { status: 400, message: 'University name cannot be empty' };
+    if (data.location_id !== undefined && !data.location_id) throw { status: 400, message: 'Location ID cannot be empty' };
+    if (data.address !== undefined && !data.address) throw { status: 400, message: 'Address cannot be empty' };
 
     if (data.name && data.name !== university.name) {
         const duplicate = await University.findOne({ where: { name: data.name, id: { [Op.ne]: id } } });

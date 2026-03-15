@@ -10,8 +10,8 @@ require("./models/assetType.model");
 
 // Phase 2: Core Tables
 require("./models/university.model");
-require("./models/building.model");
 require("./models/user.model");
+require("./models/building.model");
 
 // Phase 3: Infrastructure & Profiles
 require("./models/buildingImage.model");
@@ -33,22 +33,22 @@ require("./models/contract.model");
 require("./models/assetHistory.model");
 require("./models/assetInspection.model");
 
-// Phase 6: Operational Tables
+// Phase 6: Operational & Financial (Part 1)
 require("./models/contractExtension.model");
 require("./models/invoice.model");
-require("./models/booking.model");
-require("./models/request.model");
-
-// Phase 7: Financial & Activity Details
-require("./models/invoiceItem.model");
-require("./models/payment.model");
-require("./models/requestImage.model");
-require("./models/requestStatusHistory.model");
 require("./models/settlement.model");
 require("./models/settlementItem.model");
 require("./models/violationPenalty.model");
 
-// Phase 9: System & Communications
+// Phase 7: Financial & Details (Part 2)
+require("./models/payment.model");
+require("./models/invoiceItem.model");
+require("./models/booking.model");
+require("./models/request.model");
+require("./models/requestImage.model");
+require("./models/requestStatusHistory.model");
+
+// Phase 8: System & Communications
 require("./models/notification.model");
 require("./models/notificationRecipient.model");
 require("./models/auditLog.model");
@@ -70,10 +70,37 @@ const PORT = process.env.PORT || 3000;
 
 connectDB().then(async () => {
   try {
+
+    // await sequelize.sync({ alter: true }); // Dòng code cũ gây lỗi Foreign Key
+
+    // Danh sách các model theo thứ tự phụ thuộc để tránh lỗi Foreign Key
+    // const modelsToSync = [
+    //   'Location', 'Facility', 'RoomType', 'AssetType',
+    //   'University', 'User', 'Building',
+    //   'BuildingImage', 'BuildingFacility', 'Room',
+    //   'AuthProvider', 'CustomerProfile', 'RefreshToken', 'OtpCode', 'ContractTemplate',
+    //   'RoomImage', 'Asset', 'RoomTypeAsset',
+    //   'Contract', 'AssetHistory', 'AssetInspection',
+    //   'ContractExtension', 'Invoice', 'Settlement', 'SettlementItem', 'ViolationPenalty',
+    //   'Payment', 'InvoiceItem', 'Booking', 'Request', 'RequestImage', 'RequestStatusHistory',
+    //   'Notification', 'NotificationRecipient', 'AuditLog', 'ScheduledJob', 'EmailTemplate', 'EmailLog'
+    // ];
+
+    // console.log("Starting database sync...");
+    // for (const modelName of modelsToSync) {
+    //   if (sequelize.models[modelName]) {
+    //     await sequelize.models[modelName].sync({ alter: true });
+    //   }
+    // }
+
+    // console.log("Database synced");
+
     initCronJobs();
+
     app.listen(PORT, () => {
       console.log(`Server running at Port:${PORT}`);
     });
+
   } catch (error) {
     console.error("DB Connect Error:", error);
   }
