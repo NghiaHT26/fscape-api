@@ -22,6 +22,9 @@ router.get('/:id', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.RESID
 // Update contract — ADMIN / BM (extend duration, adjust end_date, etc.)
 router.put('/:id', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), contractController.updateContract);
 
+// Resident renews their contract (ACTIVE/EXPIRING_SOON → new PENDING_CUSTOMER_SIGNATURE)
+router.post('/:id/renew', requireRoles(ROLES.RESIDENT), contractController.renewContract);
+
 // Customer/Resident signs contract (PENDING_CUSTOMER_SIGNATURE → PENDING_MANAGER_SIGNATURE)
 router.patch('/:id/sign', requireRoles(ROLES.RESIDENT, ROLES.CUSTOMER), contractController.customerSign);
 

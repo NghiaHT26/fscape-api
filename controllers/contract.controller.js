@@ -83,11 +83,25 @@ const managerSign = async (req, res) => {
     } catch (err) { return handleError(res, err); }
 };
 
+// [POST] /api/contracts/:id/renew — Resident renews their contract
+const renewContract = async (req, res) => {
+    try {
+        const contract = await contractService.renewContract(
+            req.params.id, req.body, req.user
+        );
+        return res.status(201).json({
+            message: 'Renewal contract created successfully',
+            data: contract
+        });
+    } catch (err) { return handleError(res, err); }
+};
+
 module.exports = {
     getAllContracts,
     getContractById,
     getMyContracts,
     updateContract,
     customerSign,
-    managerSign
+    managerSign,
+    renewContract
 };
