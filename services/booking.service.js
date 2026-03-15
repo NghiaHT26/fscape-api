@@ -1,17 +1,43 @@
 const { sequelize } = require('../config/db');
-const { DEPOSIT_MONTHS, DEFAULT_DEPOSIT_MONTHS, MIN_CHECKIN_DAYS, BOOKING_EXPIRY_MS } = require('../constants/booking');
+const {
+    DEPOSIT_MONTHS,
+    MIN_CHECKIN_DAYS,
+    MAX_CHECKIN_DAYS,
+    BOOKING_EXPIRY_MS
+} = require('../constants/booking');
+const {
+    isValidContractLength,
+    isValidBookingBillingCycle
+} = require('../constants/bookingEnums');
+const { normalizeBillingCycle } = require('../utils/billingCycle.util');
 const { generateNumberedId } = require('../utils/generateId');
+const { parseLocalDate } = require('../utils/date.util');
 
 const createBooking = async (userId, bookingData) => {
     const { Booking, Room, RoomType, User, CustomerProfile } = sequelize.models;
-    const { roomId, checkInDate, rentalTerm, customerInfo } = bookingData;
+    const { roomId, checkInDate, rentalTerm, durationMonths, billingCycle, customerInfo } = bookingData;
+    const resolvedDurationMonths = Number(durationMonths ?? bookingData.duration_months ?? rentalTerm);
 
-    // Validate check-in date: phải >= today + MIN_CHECKIN_DAYS
-    const minCheckIn = new Date();
+    if (!isValidContractLength(resolvedDurationMonths)) {
+        throw { status: 400, message: 'Thời hạn hợp đồng chỉ hỗ trợ 6 hoặc 12 tháng.' };
+    }
+
+    // Validate check-in date: phải trong khoảng [today + MIN, today + MAX]
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const minCheckIn = new Date(today);
     minCheckIn.setDate(minCheckIn.getDate() + MIN_CHECKIN_DAYS);
-    minCheckIn.setHours(0, 0, 0, 0);
-    if (new Date(checkInDate) < minCheckIn) {
-        throw { status: 400, message: `Ngày nhận phòng phải từ ${MIN_CHECKIN_DAYS} ngày kể từ hôm nay.` };
+    const maxCheckIn = new Date(today);
+    maxCheckIn.setDate(maxCheckIn.getDate() + MAX_CHECKIN_DAYS);
+    const checkIn = parseLocalDate(checkInDate);
+    if (checkIn < minCheckIn || checkIn > maxCheckIn) {
+        throw { status: 400, message: `Ngày nhận phòng phải trong khoảng ${MIN_CHECKIN_DAYS}–${MAX_CHECKIN_DAYS} ngày kể từ hôm nay.` };
+    }
+
+    // Validate billing cycle from user input
+    const resolvedBillingCycle = normalizeBillingCycle(billingCycle ?? bookingData.billing_cycle);
+    if (!isValidBookingBillingCycle(resolvedBillingCycle)) {
+        throw { status: 400, message: 'Chu kỳ thanh toán không hợp lệ (CYCLE_1M, CYCLE_3M, CYCLE_6M, ALL_IN).' };
     }
 
     const transaction = await sequelize.transaction();
@@ -36,8 +62,7 @@ const createBooking = async (userId, bookingData) => {
         // 2. Lấy room type riêng (không cần lock)
         const roomType = await RoomType.findByPk(room.room_type_id, { transaction });
         const basePrice = Number(roomType?.base_price || 0);
-        const depositMonths = DEPOSIT_MONTHS[rentalTerm] ?? DEFAULT_DEPOSIT_MONTHS;
-        const depositAmount = basePrice * depositMonths;
+        const depositAmount = basePrice * DEPOSIT_MONTHS;
 
         // 3. Lưu thông tin hồ sơ khách hàng (CustomerProfile)
         const [profile, created] = await CustomerProfile.findOrCreate({
@@ -68,7 +93,8 @@ const createBooking = async (userId, bookingData) => {
             room_id: roomId,
             customer_id: userId,
             check_in_date: checkInDate,
-            duration_months: rentalTerm,
+            duration_months: resolvedDurationMonths,
+            billing_cycle: resolvedBillingCycle,
             status: 'PENDING',
             room_price_snapshot: basePrice,
             deposit_amount: depositAmount,
