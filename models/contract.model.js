@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const { BOOKING_BILLING_CYCLE } = require('../constants/bookingEnums');
 const User = require('./user.model');
 const Room = require('./room.model');
 const ContractTemplate = require('./contractTemplate.model');
@@ -61,6 +62,11 @@ const Contract = sequelize.define('Contract', {
     type: DataTypes.DATEONLY,
     allowNull: true
   },
+  duration_months: {
+    // TO-BE: fixed-term contracts only allow 6 or 12 months.
+    type: DataTypes.SMALLINT,
+    allowNull: true
+  },
   base_rent: {
     type: DataTypes.DECIMAL,
     allowNull: false
@@ -69,10 +75,21 @@ const Contract = sequelize.define('Contract', {
     type: DataTypes.DECIMAL,
     allowNull: false
   },
+  deposit_original_amount: {
+    // Original deposit agreed at signing.
+    type: DataTypes.DECIMAL,
+    allowNull: true
+  },
+  deposit_balance: {
+    // Mutable deposit balance during checkout penalties/settlement.
+    type: DataTypes.DECIMAL,
+    allowNull: true
+  },
   billing_cycle: {
-    type: DataTypes.ENUM("MONTHLY", "SEMI_ANNUALLY"),
-    allowNull: true,
-    defaultValue: "MONTHLY"
+    // TO-BE: 1/3/6 months or all-in.
+    type: DataTypes.ENUM(...Object.values(BOOKING_BILLING_CYCLE)),
+    allowNull: false,
+    defaultValue: BOOKING_BILLING_CYCLE.ONE_MONTH
   },
   next_billing_date: {
     type: DataTypes.DATEONLY,
@@ -81,6 +98,25 @@ const Contract = sequelize.define('Contract', {
   last_billed_date: {
     type: DataTypes.DATEONLY,
     allowNull: true
+  },
+  next_rent_billing_at: {
+    // Next rent billing timestamp (UTC-based).
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  next_service_billing_at: {
+    // Next service billing timestamp (+30 days cycle in UTC).
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  renewed_from_contract_id: {
+    // Self-link for contract renewal chain.
+    type: DataTypes.UUID,
+    allowNull: true,
+    references: {
+      model: 'contracts',
+      key: 'id'
+    }
   },
   status: {
     type: DataTypes.ENUM("DRAFT", "PENDING_CUSTOMER_SIGNATURE", "PENDING_MANAGER_SIGNATURE", "ACTIVE", "EXPIRING_SOON", "FINISHED", "TERMINATED"),
@@ -185,6 +221,12 @@ const Contract = sequelize.define('Contract', {
       fields: [
         { name: "start_date" },
       ]
+    },
+    {
+      name: "idx_contracts_renewed_from_contract_id",
+      fields: [
+        { name: "renewed_from_contract_id" },
+      ]
     }, {
       name: "idx_contracts_status",
       fields: [
@@ -199,8 +241,13 @@ Contract.associate = (models) => {
   Contract.belongsTo(models.User, { foreignKey: 'customer_id', as: 'customer' });
   Contract.belongsTo(models.User, { foreignKey: 'manager_id', as: 'manager' });
   Contract.belongsTo(models.ContractTemplate, { foreignKey: 'template_id', as: 'template' });
+  Contract.belongsTo(models.Contract, { foreignKey: 'renewed_from_contract_id', as: 'renewed_from' });
+  Contract.hasMany(models.Contract, { foreignKey: 'renewed_from_contract_id', as: 'renewals' });
+  Contract.hasMany(models.ContractExtension, { foreignKey: 'contract_id', as: 'extensions' });
   Contract.hasMany(models.Invoice, { foreignKey: 'contract_id', as: 'invoices' });
   Contract.hasMany(models.Payment, { foreignKey: 'contract_id', as: 'payments' });
+  Contract.hasOne(models.Settlement, { foreignKey: 'contract_id', as: 'settlement' });
+  Contract.hasMany(models.ViolationPenalty, { foreignKey: 'contract_id', as: 'violation_penalties' });
 };
 
 module.exports = Contract;

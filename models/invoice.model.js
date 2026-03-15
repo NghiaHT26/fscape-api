@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const { INVOICE_TYPE } = require('../constants/invoiceEnums');
 const Contract = require('./contract.model');
 
 const Invoice = sequelize.define('Invoice', {
@@ -13,6 +14,12 @@ const Invoice = sequelize.define('Invoice', {
       type: DataTypes.STRING(50),
       allowNull: false,
       unique: "invoices_invoice_number_key"
+    },
+    invoice_type: {
+      // TO-BE invoice split: rent, service, settlement.
+      type: DataTypes.ENUM(...Object.values(INVOICE_TYPE)),
+      allowNull: false,
+      defaultValue: INVOICE_TYPE.RENT
     },
     contract_id: {
       type: DataTypes.UUID,
@@ -105,6 +112,12 @@ const Invoice = sequelize.define('Invoice', {
         name: "idx_invoices_invoice_number",
         fields: [
           { name: "invoice_number" },
+        ]
+      },
+      {
+        name: "idx_invoices_invoice_type",
+        fields: [
+          { name: "invoice_type" },
         ]
       },
       {

@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const { BOOKING_BILLING_CYCLE } = require('../constants/bookingEnums');
 const Room = require('./room.model');
 const User = require('./user.model');
 const Contract = require('./contract.model');
@@ -38,9 +39,16 @@ const Booking = sequelize.define('Booking', {
     allowNull: false
   },
   duration_months: {
+    // TO-BE: only 6 or 12 months (DB check constraint enforces this)
     type: DataTypes.SMALLINT,
     allowNull: true,
     defaultValue: null
+  },
+  billing_cycle: {
+    // TO-BE billing options at booking time.
+    type: DataTypes.ENUM(...Object.values(BOOKING_BILLING_CYCLE)),
+    allowNull: false,
+    defaultValue: BOOKING_BILLING_CYCLE.ONE_MONTH
   },
   status: {
     type: DataTypes.ENUM("PENDING", "DEPOSIT_PAID", "CONVERTED", "CANCELLED"),
@@ -125,6 +133,12 @@ const Booking = sequelize.define('Booking', {
       name: "idx_bookings_check_in_date",
       fields: [
         { name: "check_in_date" },
+      ]
+    },
+    {
+      name: "idx_bookings_billing_cycle",
+      fields: [
+        { name: "billing_cycle" },
       ]
     },
     {
