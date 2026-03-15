@@ -32,6 +32,7 @@ require("./models/roomTypeAsset.model");
 require("./models/contract.model");
 require("./models/assetHistory.model");
 require("./models/assetInspection.model");
+require("./models/assetInspectionItem.model");
 
 // Phase 6: Operational Tables
 require("./models/contractExtension.model");

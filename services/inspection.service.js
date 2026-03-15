@@ -4,13 +4,17 @@ const Asset = require('../models/asset.model');
 const AssetType = require('../models/assetType.model');
 const AssetHistory = require('../models/assetHistory.model');
 const AssetInspection = require('../models/assetInspection.model');
+const AssetInspectionItem = require('../models/assetInspectionItem.model');
 const Room = require('../models/room.model');
 const RoomTypeAsset = require('../models/roomTypeAsset.model');
 const Contract = require('../models/contract.model');
 const User = require('../models/user.model');
+const Request = require('../models/request.model');
 const auditService = require('./audit.service');
+const settlementService = require('./settlement.service');
 
 const { ROLES } = require('../constants/roles');
+const { REQUEST_SERVICE_BILLING_STATUS } = require('../constants/invoiceEnums');
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -169,103 +173,145 @@ async function computeCheckOutDiff(room, qrCodes) {
     };
 }
 
-// ─── POST /api/inspections/preview ────────────────────────────
-const previewInspection = async (roomId, qrCodes, type, user) => {
-    const room = await Room.findByPk(roomId);
-    if (!room) throw { status: 404, message: 'Room not found' };
-    ensureBuildingAccess(user, room);
-
-    if (type === 'CHECK_IN') {
-        const { results, extra, unknown_qr_codes } = await computeCheckInDiff(room, qrCodes);
-        return { type: 'CHECK_IN', results, extra, unknown_qr_codes };
-    } else {
-        const { matched, missing, extra, penalty_total, unknown_qr_codes } = await computeCheckOutDiff(room, qrCodes);
-        return { type: 'CHECK_OUT', matched, missing, extra, penalty_total, unknown_qr_codes };
+// ─── Shared: build conditionMap from assets input ────────────
+function buildConditionMap(assetsInput) {
+    const conditionMap = {};
+    for (const a of assetsInput) {
+        conditionMap[a.qr_code] = { condition: a.condition, note: a.note || null };
     }
-};
-
-// ─── POST /api/inspections ────────────────────────────────────
-const confirmInspection = async (roomId, qrCodes, type, notes, user) => {
-    const room = await Room.findByPk(roomId);
-    if (!room) throw { status: 404, message: 'Room not found' };
-    ensureBuildingAccess(user, room);
-
-    if (type === 'CHECK_IN') {
-        return confirmCheckIn(room, qrCodes, notes, user);
-    } else {
-        return confirmCheckOut(room, qrCodes, notes, user);
-    }
-};
-
-// ─── CHECK-IN: validate types → assign assets to room ─────────
-async function confirmCheckIn(room, qrCodes, notes, user) {
-    const { results, assetsToAssign, extra, unknown_qr_codes } = await computeCheckInDiff(room, qrCodes);
-
-    // Strict validation: all asset types must match template quantities exactly
-    const shortItems = results.filter(r => r.status === 'SHORT');
-    if (shortItems.length > 0) {
-        const details = shortItems
-            .map(r => `${r.asset_type_name}: cần ${r.expected}, scan ${r.actual}`)
-            .join('; ');
-        throw {
-            status: 400,
-            message: `Check-in thất bại — thiếu tài sản: ${details}`,
-            data: { results, extra, unknown_qr_codes }
-        };
-    }
-
-    const transaction = await sequelize.transaction();
-    try {
-        const inspection = await AssetInspection.create({
-            room_id: room.id,
-            performed_by: user.id,
-            type: 'CHECK_IN',
-            status: 'NO_DISCREPANCY',
-            penalty_total: 0,
-            notes
-        }, { transaction });
-
-        // Assign matched assets to room
-        if (assetsToAssign.length > 0) {
-            const assetIds = assetsToAssign.map(a => a.id);
-            await Asset.update(
-                { current_room_id: room.id, status: 'IN_USE' },
-                { where: { id: { [Op.in]: assetIds } }, transaction }
-            );
-
-            // Log history for each assigned asset
-            const historyRows = assetsToAssign.map(asset => ({
-                asset_id: asset.id,
-                from_room_id: asset.current_room_id,
-                to_room_id: room.id,
-                from_status: asset.status,
-                to_status: 'IN_USE',
-                action: 'CHECK_IN',
-                performed_by: user.id,
-                notes: `inspection:${inspection.id}`
-            }));
-            await AssetHistory.bulkCreate(historyRows, { transaction });
-        }
-
-        await transaction.commit();
-
-        return {
-            inspection: inspection.toJSON(),
-            results,
-            assets_assigned: assetsToAssign.length,
-            extra,
-            unknown_qr_codes
-        };
-    } catch (error) {
-        await transaction.rollback();
-        throw error;
-    }
+    return conditionMap;
 }
 
-// ─── CHECK-OUT: validate exact assets → unassign all, deduct deposit if missing ─
-async function confirmCheckOut(room, qrCodes, notes, user) {
+// ─── POST /api/inspections/preview (staff, CHECK_OUT only) ────
+const previewInspection = async (roomId, assetsInput, user) => {
+    const room = await Room.findByPk(roomId);
+    if (!room) throw { status: 404, message: 'Room not found' };
+    ensureBuildingAccess(user, room);
+
+    const qrCodes = assetsInput.map(a => a.qr_code);
+    const conditionMap = buildConditionMap(assetsInput);
     const diff = await computeCheckOutDiff(room, qrCodes);
-    const hasMissing = diff.missing.length > 0;
+
+    // Split matched into GOOD and BROKEN based on reported condition
+    let brokenPenalty = 0;
+    const conditionSummary = diff._scannedAssets
+        .filter(a => diff._matchedAssets.some(m => m.id === a.id))
+        .map(asset => {
+            const cond = conditionMap[asset.qr_code]?.condition || 'GOOD';
+            const note = conditionMap[asset.qr_code]?.note || null;
+            const price = Number(asset.asset_type?.default_price || asset.price || 0);
+            if (cond === 'BROKEN') brokenPenalty += price;
+            return {
+                qr_code: asset.qr_code,
+                asset_id: asset.id,
+                asset_type_name: asset.asset_type ? asset.asset_type.name : null,
+                condition: cond,
+                note,
+                penalty: cond === 'BROKEN' ? price : 0
+            };
+        });
+
+    const totalPenalty = diff.penalty_total + brokenPenalty;
+
+    // ── Settlement preview (contract + unbilled services + deposit) ──
+    let settlementPreview = null;
+
+    const contract = await Contract.findOne({
+        where: {
+            room_id: room.id,
+            status: { [Op.in]: ['ACTIVE', 'EXPIRING_SOON', 'FINISHED'] }
+        },
+        order: [['created_at', 'DESC']]
+    });
+
+    if (contract) {
+        const depositOriginal = Number(contract.deposit_original_amount || contract.deposit_amount);
+        const depositBefore = Number(contract.deposit_amount);
+
+        // Query unbilled service requests
+        const unbilledRequests = await Request.findAll({
+            where: {
+                room_id: room.id,
+                status: { [Op.in]: ['COMPLETED', 'DONE'] },
+                service_billing_status: REQUEST_SERVICE_BILLING_STATUS.UNBILLED,
+                request_price: { [Op.gt]: 0 }
+            }
+        });
+
+        const totalUnbilledService = unbilledRequests.reduce(
+            (sum, req) => sum + Number(req.request_price || 0), 0
+        );
+
+        const totalDeductions = totalPenalty + totalUnbilledService;
+        const amountRefund = Math.max(0, depositBefore - totalDeductions);
+        const amountDue = Math.max(0, totalDeductions - depositBefore);
+
+        settlementPreview = {
+            contract_id: contract.id,
+            contract_number: contract.contract_number,
+            deposit_original_amount: depositOriginal,
+            deposit_balance_before: depositBefore,
+            total_penalty_amount: totalPenalty,
+            total_unbilled_service_amount: totalUnbilledService,
+            amount_refund_to_resident: amountRefund,
+            amount_due_from_resident: amountDue,
+            unbilled_requests: unbilledRequests.map(r => ({
+                id: r.id,
+                request_number: r.request_number,
+                request_type: r.request_type,
+                title: r.title,
+                price: Number(r.request_price)
+            }))
+        };
+    }
+
+    return {
+        type: 'CHECK_OUT',
+        matched: diff.matched,
+        missing: diff.missing,
+        condition_summary: conditionSummary,
+        extra: diff.extra,
+        penalty_total: totalPenalty,
+        missing_penalty: diff.penalty_total,
+        broken_penalty: brokenPenalty,
+        settlement_preview: settlementPreview,
+        unknown_qr_codes: diff.unknown_qr_codes
+    };
+};
+
+// ─── POST /api/inspections (staff, CHECK_OUT only) ───────────
+const confirmInspection = async (roomId, assetsInput, notes, user) => {
+    const room = await Room.findByPk(roomId);
+    if (!room) throw { status: 404, message: 'Room not found' };
+    ensureBuildingAccess(user, room);
+
+    return confirmCheckOut(room, assetsInput, notes, user);
+};
+
+// ─── CHECK-OUT: unassign all, BROKEN → MAINTENANCE, deduct deposit ─
+async function confirmCheckOut(room, assetsInput, notes, user) {
+    const qrCodes = assetsInput.map(a => a.qr_code);
+    const conditionMap = buildConditionMap(assetsInput);
+    const diff = await computeCheckOutDiff(room, qrCodes);
+
+    // Split matched assets by condition
+    const matchedGood = [];
+    const matchedBroken = [];
+    let brokenPenalty = 0;
+
+    for (const asset of diff._matchedAssets) {
+        const cond = conditionMap[asset.qr_code]?.condition || 'GOOD';
+        if (cond === 'BROKEN') {
+            const price = Number(asset.asset_type?.default_price || asset.price || 0);
+            brokenPenalty += price;
+            matchedBroken.push(asset);
+        } else {
+            matchedGood.push(asset);
+        }
+    }
+
+    const totalPenalty = diff.penalty_total + brokenPenalty;
+    const hasDiscrepancy = diff.missing.length > 0 || matchedBroken.length > 0;
 
     const transaction = await sequelize.transaction();
     try {
@@ -273,14 +319,25 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
             room_id: room.id,
             performed_by: user.id,
             type: 'CHECK_OUT',
-            status: hasMissing ? 'SETTLED' : 'NO_DISCREPANCY',
-            penalty_total: diff.penalty_total,
+            status: hasDiscrepancy ? 'SETTLED' : 'NO_DISCREPANCY',
+            penalty_total: totalPenalty,
             notes
         }, { transaction });
 
+        // ── AssetInspectionItem records for all scanned assets ──
+        const itemRows = diff._scannedAssets.map(asset => ({
+            inspection_id: inspection.id,
+            asset_id: asset.id,
+            qr_code: asset.qr_code,
+            condition: conditionMap[asset.qr_code]?.condition || 'GOOD',
+            note: conditionMap[asset.qr_code]?.note || null
+        }));
+        const items = await AssetInspectionItem.bulkCreate(itemRows, { transaction });
+
+        // ── Asset history rows ──
         const historyRows = [];
 
-        for (const asset of diff._matchedAssets) {
+        for (const asset of matchedGood) {
             historyRows.push({
                 asset_id: asset.id,
                 from_room_id: room.id,
@@ -288,6 +345,19 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
                 from_status: asset.status,
                 to_status: 'AVAILABLE',
                 action: 'CHECK_OUT',
+                performed_by: user.id,
+                notes: `inspection:${inspection.id}`
+            });
+        }
+
+        for (const asset of matchedBroken) {
+            historyRows.push({
+                asset_id: asset.id,
+                from_room_id: room.id,
+                to_room_id: null,
+                from_status: asset.status,
+                to_status: 'MAINTENANCE',
+                action: 'INSPECTION_BROKEN',
                 performed_by: user.id,
                 notes: `inspection:${inspection.id}`
             });
@@ -310,19 +380,22 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
             await AssetHistory.bulkCreate(historyRows, { transaction });
         }
 
-        const matchedIds = diff._matchedAssets.map(a => a.id);
-        if (matchedIds.length > 0) {
+        // ── Update asset statuses ──
+        const goodIds = matchedGood.map(a => a.id);
+        if (goodIds.length > 0) {
             await Asset.update(
                 { current_room_id: null, status: 'AVAILABLE' },
-                { where: { id: { [Op.in]: matchedIds } }, transaction }
+                { where: { id: { [Op.in]: goodIds } }, transaction }
             );
         }
 
+        const brokenIds = matchedBroken.map(a => a.id);
         const missingIds = diff._missingAssets.map(a => a.id);
-        if (missingIds.length > 0) {
+        const maintenanceIds = [...brokenIds, ...missingIds];
+        if (maintenanceIds.length > 0) {
             await Asset.update(
                 { current_room_id: null, status: 'MAINTENANCE' },
-                { where: { id: { [Op.in]: missingIds } }, transaction }
+                { where: { id: { [Op.in]: maintenanceIds } }, transaction }
             );
         }
 
@@ -337,14 +410,29 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
         });
 
         let depositInfo = null;
+        let settlement = null;
 
         if (contract) {
             const originalDeposit = Number(contract.deposit_amount);
-            const penalty = hasMissing ? Number(diff.penalty_total) : 0;
+            const penalty = hasDiscrepancy ? totalPenalty : 0;
             const finalDeposit = originalDeposit - penalty;
 
-            // Deduct deposit if missing assets
-            if (hasMissing) {
+            // ── Create Settlement record ──
+            settlement = await settlementService.createCheckoutSettlement(
+                contract,
+                {
+                    missingAssets: diff._missingAssets,
+                    brokenAssets: matchedBroken,
+                    missingPenalty: diff.penalty_total,
+                    brokenPenalty,
+                    totalPenalty: penalty
+                },
+                user,
+                transaction
+            );
+
+            // Deduct deposit (keep for backward compatibility)
+            if (hasDiscrepancy) {
                 await contract.update({ deposit_amount: finalDeposit }, { transaction });
 
                 await auditService.log({
@@ -353,7 +441,7 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
                     entityType: 'contract',
                     entityId: contract.id,
                     oldValue: { deposit_amount: originalDeposit },
-                    newValue: { deposit_amount: finalDeposit, penalty_from_inspection: inspection.id },
+                    newValue: { deposit_amount: finalDeposit, penalty_from_inspection: inspection.id, settlement_id: settlement.id },
                 }, { transaction });
             }
 
@@ -383,6 +471,7 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
                 penalty_deducted: penalty,
                 final_deposit: finalDeposit,
                 deficit: finalDeposit < 0,
+                settlement_id: settlement.id,
             };
         }
 
@@ -394,13 +483,34 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
 
         await transaction.commit();
 
+        // Build condition summary for response
+        const conditionSummary = diff._scannedAssets
+            .filter(a => diff._matchedAssets.some(m => m.id === a.id))
+            .map(asset => {
+                const cond = conditionMap[asset.qr_code]?.condition || 'GOOD';
+                const price = Number(asset.asset_type?.default_price || asset.price || 0);
+                return {
+                    qr_code: asset.qr_code,
+                    asset_id: asset.id,
+                    asset_type_name: asset.asset_type ? asset.asset_type.name : null,
+                    condition: cond,
+                    note: conditionMap[asset.qr_code]?.note || null,
+                    penalty: cond === 'BROKEN' ? price : 0
+                };
+            });
+
         return {
             inspection: inspection.toJSON(),
+            items: items.map(i => i.toJSON()),
             matched: diff.matched,
             missing: diff.missing,
+            condition_summary: conditionSummary,
             extra: diff.extra,
-            penalty_total: diff.penalty_total,
+            penalty_total: totalPenalty,
+            missing_penalty: diff.penalty_total,
+            broken_penalty: brokenPenalty,
             deposit_info: depositInfo,
+            settlement,
             unknown_qr_codes: diff.unknown_qr_codes
         };
     } catch (error) {
@@ -409,4 +519,172 @@ async function confirmCheckOut(room, qrCodes, notes, user) {
     }
 }
 
-module.exports = { previewInspection, confirmInspection };
+// ─── RESIDENT SELF-SERVICE CHECK-IN ──────────────────────────
+
+async function resolveResidentContract(user) {
+    const contract = await Contract.findOne({
+        where: {
+            customer_id: user.id,
+            status: { [Op.in]: ['ACTIVE', 'EXPIRING_SOON'] }
+        },
+        include: [{ model: Room, as: 'room' }],
+        order: [['created_at', 'DESC']]
+    });
+
+    if (!contract || !contract.room) {
+        throw { status: 403, message: 'No active contract found' };
+    }
+
+    return { contract, room: contract.room };
+}
+
+const residentPreviewCheckIn = async (assetsInput, user) => {
+    const { contract, room } = await resolveResidentContract(user);
+
+    const qrCodes = assetsInput.map(a => a.qr_code);
+    const conditionMap = {};
+    for (const a of assetsInput) {
+        conditionMap[a.qr_code] = { condition: a.condition, note: a.note || null };
+    }
+
+    const { results, extra, unknown_qr_codes, scannedAssets } = await computeCheckInDiff(room, qrCodes);
+
+    // Build condition summary from scanned assets
+    const conditionSummary = scannedAssets.map(asset => ({
+        qr_code: asset.qr_code,
+        asset_id: asset.id,
+        asset_type_name: asset.asset_type ? asset.asset_type.name : null,
+        condition: conditionMap[asset.qr_code]?.condition || 'GOOD',
+        note: conditionMap[asset.qr_code]?.note || null
+    }));
+
+    // Check failures
+    const failureReasons = [];
+
+    const shortItems = results.filter(r => r.status === 'SHORT');
+    for (const item of shortItems) {
+        failureReasons.push(`${item.asset_type_name}: cần ${item.expected}, scan ${item.actual}`);
+    }
+
+    const brokenItems = conditionSummary.filter(c => c.condition === 'BROKEN');
+    for (const item of brokenItems) {
+        failureReasons.push(`${item.asset_type_name} (${item.qr_code}): tình trạng BROKEN${item.note ? ' — ' + item.note : ''}`);
+    }
+
+    const canCheckIn = shortItems.length === 0 && brokenItems.length === 0;
+
+    return {
+        type: 'CHECK_IN',
+        room_id: room.id,
+        contract_id: contract.id,
+        template_comparison: results,
+        condition_summary: conditionSummary,
+        can_check_in: canCheckIn,
+        failure_reasons: failureReasons,
+        extra_assets: extra,
+        unknown_qr_codes
+    };
+};
+
+const residentConfirmCheckIn = async (assetsInput, notes, user) => {
+    const { contract, room } = await resolveResidentContract(user);
+
+    const qrCodes = assetsInput.map(a => a.qr_code);
+    const conditionMap = {};
+    for (const a of assetsInput) {
+        conditionMap[a.qr_code] = { condition: a.condition, note: a.note || null };
+    }
+
+    const { results, assetsToAssign, extra, unknown_qr_codes, scannedAssets } = await computeCheckInDiff(room, qrCodes);
+
+    // Validate: no SHORT items
+    const failureReasons = [];
+
+    const shortItems = results.filter(r => r.status === 'SHORT');
+    for (const item of shortItems) {
+        failureReasons.push(`${item.asset_type_name}: cần ${item.expected}, scan ${item.actual}`);
+    }
+
+    // Build condition summary
+    const conditionSummary = scannedAssets.map(asset => ({
+        qr_code: asset.qr_code,
+        asset_id: asset.id,
+        asset_type_name: asset.asset_type ? asset.asset_type.name : null,
+        condition: conditionMap[asset.qr_code]?.condition || 'GOOD',
+        note: conditionMap[asset.qr_code]?.note || null
+    }));
+
+    const brokenItems = conditionSummary.filter(c => c.condition === 'BROKEN');
+    for (const item of brokenItems) {
+        failureReasons.push(`${item.asset_type_name} (${item.qr_code}): tình trạng BROKEN${item.note ? ' — ' + item.note : ''}`);
+    }
+
+    if (failureReasons.length > 0) {
+        throw {
+            status: 400,
+            message: 'Check-in thất bại',
+            data: {
+                failure_reasons: failureReasons,
+                template_comparison: results,
+                condition_summary: conditionSummary
+            }
+        };
+    }
+
+    const transaction = await sequelize.transaction();
+    try {
+        const inspection = await AssetInspection.create({
+            room_id: room.id,
+            performed_by: user.id,
+            type: 'CHECK_IN',
+            status: 'NO_DISCREPANCY',
+            penalty_total: 0,
+            notes
+        }, { transaction });
+
+        // Create per-asset condition items
+        const itemRows = scannedAssets.map(asset => ({
+            inspection_id: inspection.id,
+            asset_id: asset.id,
+            qr_code: asset.qr_code,
+            condition: conditionMap[asset.qr_code]?.condition || 'GOOD',
+            note: conditionMap[asset.qr_code]?.note || null
+        }));
+        const items = await AssetInspectionItem.bulkCreate(itemRows, { transaction });
+
+        // Assign assets to room
+        if (assetsToAssign.length > 0) {
+            const assetIds = assetsToAssign.map(a => a.id);
+            await Asset.update(
+                { current_room_id: room.id, status: 'IN_USE' },
+                { where: { id: { [Op.in]: assetIds } }, transaction }
+            );
+
+            const historyRows = assetsToAssign.map(asset => ({
+                asset_id: asset.id,
+                from_room_id: asset.current_room_id,
+                to_room_id: room.id,
+                from_status: asset.status,
+                to_status: 'IN_USE',
+                action: 'CHECK_IN',
+                performed_by: user.id,
+                notes: `inspection:${inspection.id}`
+            }));
+            await AssetHistory.bulkCreate(historyRows, { transaction });
+        }
+
+        await transaction.commit();
+
+        return {
+            inspection: inspection.toJSON(),
+            items: items.map(i => i.toJSON()),
+            assets_assigned: assetsToAssign.length,
+            room_id: room.id
+        };
+    } catch (error) {
+        await transaction.rollback();
+        throw error;
+    }
+};
+
+module.exports = { previewInspection, confirmInspection, residentPreviewCheckIn, residentConfirmCheckIn };
