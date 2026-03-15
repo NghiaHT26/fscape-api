@@ -423,11 +423,11 @@ const renewContract = async (contractId, body, user) => {
             throw { status: 400, message: 'Chỉ có thể gia hạn hợp đồng đang ACTIVE hoặc EXPIRING_SOON' };
         }
 
-        // 4. Prevent duplicate pending renewals
+        // 4. Prevent duplicate pending renewals (only block if one is actively being signed)
         const existingRenewal = await Contract.findOne({
             where: {
                 renewed_from_contract_id: contractId,
-                status: { [Op.notIn]: ['TERMINATED'] }
+                status: { [Op.in]: ['PENDING_CUSTOMER_SIGNATURE', 'PENDING_MANAGER_SIGNATURE'] }
             },
             transaction
         });
@@ -729,11 +729,21 @@ const managerSign = async (contractId, signatureUrl, user, req) => {
         if (contract.renewed_from_contract_id) {
             // RENEWAL: finish the old contract, room is already OCCUPIED
             const oldContract = await Contract.findByPk(contract.renewed_from_contract_id, { transaction });
-            if (oldContract && ['ACTIVE', 'EXPIRING_SOON'].includes(oldContract.status)) {
+            if (oldContract && ['ACTIVE', 'EXPIRING_SOON', 'FINISHED'].includes(oldContract.status)) {
                 await oldContract.update({ status: 'FINISHED' }, { transaction });
             }
             // Room stays OCCUPIED — no change needed
             // No booking to CONVERT — renewals don't create bookings
+
+            // Safety net: restore RESIDENT role if cron downgraded it
+            // (edge case: old contract expired before renewal was signed)
+            const customer = await User.findByPk(contract.customer_id, { transaction });
+            if (customer && customer.role === ROLES.CUSTOMER) {
+                await customer.update({
+                    role: ROLES.RESIDENT,
+                    building_id: contractBuildingId
+                }, { transaction });
+            }
         } else {
             // ORIGINAL FLOW: new contract from booking
             // 2. Room → OCCUPIED
