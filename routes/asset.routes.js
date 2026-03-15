@@ -4,20 +4,22 @@ const assetController = require('../controllers/asset.controller');
 const authJwt = require('../middlewares/authJwt');
 const requireAdmin = require('../middlewares/requireAdmin');
 const requireRoles = require('../middlewares/requireRoles');
+const validate = require('../middlewares/validateResult');
 const { ROLES } = require('../constants/roles');
+const validator = require('../validators/asset.validator');
 
 router.get('/', authJwt, requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF), assetController.getAllAssets);
 
-router.get('/:id', authJwt, requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF), assetController.getAssetById);
+router.get('/:id', authJwt, requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF), validator.paramId, validate, assetController.getAssetById);
 
-router.post('/', authJwt, requireAdmin, assetController.createAsset);
+router.post('/', authJwt, requireAdmin, validator.create, validate, assetController.createAsset);
 
-router.post('/batch', authJwt, requireAdmin, assetController.createBatchAssets);
+router.post('/batch', authJwt, requireAdmin, validator.createBatch, validate, assetController.createBatchAssets);
 
-router.put('/:id', authJwt, requireAdmin, assetController.updateAsset);
+router.put('/:id', authJwt, requireAdmin, validator.update, validate, assetController.updateAsset);
 
-router.patch('/:id/assign', authJwt, requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF), assetController.assignAsset);
+router.patch('/:id/assign', authJwt, requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF), validator.assign, validate, assetController.assignAsset);
 
-router.delete('/:id', authJwt, requireAdmin, assetController.deleteAsset);
+router.delete('/:id', authJwt, requireAdmin, validator.paramId, validate, assetController.deleteAsset);
 
 module.exports = router;
