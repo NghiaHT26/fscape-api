@@ -2,11 +2,11 @@ const nodemailer = require('nodemailer');
 const emailAuditService = require('../services/emailAudit.service');
 const { sequelize } = require('../config/db');
 
-if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
+if (process.env.NODE_ENV !== 'test' && (!process.env.MAIL_USER || !process.env.MAIL_PASS)) {
   throw new Error('MAIL credentials missing');
 }
 
-const transporter = nodemailer.createTransport({
+const transporter = process.env.NODE_ENV === 'test' ? null : nodemailer.createTransport({
   host: process.env.MAIL_HOST,
   port: Number(process.env.MAIL_PORT),
   secure: false,
