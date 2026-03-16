@@ -105,4 +105,23 @@ const deleteAssetType = async (id) => {
     return { message: `Asset type "${assetType.name}" has been deactivated` };
 };
 
-module.exports = { getAllAssetTypes, getAssetTypeById, createAssetType, updateAssetType, deleteAssetType };
+// ─── GET /api/asset-types/stats ──────────────────────────────
+const getAssetTypeStats = async () => {
+    const all = await AssetType.findAll({
+        attributes: ['is_active'],
+        raw: true,
+    });
+
+    let active = 0, inactive = 0;
+    for (const r of all) {
+        if (r.is_active) active++;
+        else inactive++;
+    }
+
+    return {
+        total: all.length,
+        by_status: { active, inactive },
+    };
+};
+
+module.exports = { getAllAssetTypes, getAssetTypeById, createAssetType, updateAssetType, deleteAssetType, getAssetTypeStats };

@@ -40,4 +40,11 @@ const deleteAssetType = async (req, res) => {
     } catch (err) { return handleError(res, err); }
 };
 
-module.exports = { getAllAssetTypes, getAssetTypeById, createAssetType, updateAssetType, deleteAssetType };
+const getAssetTypeStats = async (req, res) => {
+    try {
+        const stats = await assetTypeService.getAssetTypeStats();
+        return res.status(200).json({ data: stats });
+    } catch (err) { return handleError(res, err); }
+};
+
+module.exports = { getAllAssetTypes, getAssetTypeById, createAssetType, updateAssetType, deleteAssetType, getAssetTypeStats };

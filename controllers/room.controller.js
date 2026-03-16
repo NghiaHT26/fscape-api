@@ -158,6 +158,15 @@ const getMyRooms = async (req, res) => {
     }
 };
 
+const getRoomStats = async (req, res) => {
+    try {
+        const stats = await roomService.getRoomStats();
+        return res.status(200).json({ data: stats });
+    } catch (err) {
+        return handleError(res, err);
+    }
+};
+
 module.exports = {
     getAllRooms,
     getRoomById,
@@ -167,5 +176,6 @@ module.exports = {
     deleteRoom,
     toggleRoomStatus,
     getRoomsByBuilding,
-    getMyRooms
+    getMyRooms,
+    getRoomStats
 };

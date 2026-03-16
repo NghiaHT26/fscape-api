@@ -112,7 +112,10 @@ const getAllRequests = async (caller, { page = 1, limit = 10, status, request_ty
         attributes: ['id', 'room_number', 'floor', 'building_id']
     };
 
-    if (status) where.status = status;
+    if (status) {
+        const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+        where.status = statuses.length > 1 ? { [Op.in]: statuses } : statuses[0];
+    }
     if (request_type) where.request_type = request_type;
     if (room_id) where.room_id = room_id;
     if (assigned_staff_id) where.assigned_staff_id = assigned_staff_id;
@@ -160,7 +163,10 @@ const getAllRequests = async (caller, { page = 1, limit = 10, status, request_ty
 const getMyRequests = async (userId, { page = 1, limit = 10, status, request_type } = {}) => {
     const offset = (page - 1) * limit;
     const where = { resident_id: userId };
-    if (status) where.status = status;
+    if (status) {
+        const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+        where.status = statuses.length > 1 ? { [Op.in]: statuses } : statuses[0];
+    }
     if (request_type) where.request_type = request_type;
 
     const { count, rows } = await Request.findAndCountAll({
@@ -453,11 +459,44 @@ const updateRequestStatus = async (id, updateData) => {
     }
 };
 
+const getRequestStats = async (caller) => {
+    const where = {};
+    const include = [];
+
+    if (caller.role === ROLES.BUILDING_MANAGER) {
+        if (!caller.building_id) throw { status: 403, message: 'Building Manager chưa được gán tòa nhà.' };
+        include.push({
+            model: Room, as: 'room', attributes: [],
+            where: { building_id: caller.building_id }, required: true,
+        });
+    }
+
+    const rows = await Request.findAll({
+        where,
+        attributes: ['status', 'request_type'],
+        include,
+        raw: true,
+    });
+
+    const byStatus = {};
+    const byType = {};
+
+    for (const r of rows) {
+        const sk = r.status.toLowerCase();
+        byStatus[sk] = (byStatus[sk] || 0) + 1;
+        const tk = r.request_type.toLowerCase();
+        byType[tk] = (byType[tk] || 0) + 1;
+    }
+
+    return { total: rows.length, by_status: byStatus, by_type: byType };
+};
+
 module.exports = {
     getAllRequests,
     getMyRequests,
     getRequestById,
     createRequest,
     assignRequest,
-    updateRequestStatus
+    updateRequestStatus,
+    getRequestStats
 };

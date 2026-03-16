@@ -9,6 +9,8 @@ const validator = require('../validators/request.validator');
 
 router.use(authJwt);
 
+router.get('/stats', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), requestController.getRequestStats);
+
 router.get('/', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF, ROLES.RESIDENT), requestController.getAllRequests);
 
 router.get('/my', requireRoles(ROLES.RESIDENT), requestController.getMyRequests);

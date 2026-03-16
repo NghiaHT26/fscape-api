@@ -321,4 +321,32 @@ const deleteAsset = async (id) => {
     return { message: `Asset "${asset.name}" deleted successfully` };
 };
 
-module.exports = { getAllAssets, getAssetById, createAsset, createBatchAssets, updateAsset, assignAsset, deleteAsset };
+// ─── GET /api/assets/stats ──────────────────────────────────
+const getAssetStats = async () => {
+    const assets = await Asset.findAll({
+        attributes: ['status', 'building_id'],
+        include: [{ model: Building, as: 'building', attributes: ['id', 'name'] }],
+        raw: true,
+        nest: true,
+    });
+
+    const byStatus = { available: 0, in_use: 0 };
+    const byBuilding = {};
+
+    for (const a of assets) {
+        const key = a.status === 'IN_USE' ? 'in_use' : 'available';
+        byStatus[key]++;
+        const bName = a.building?.name || 'Khác';
+        const bId = a.building_id;
+        if (!byBuilding[bId]) byBuilding[bId] = { building_id: bId, name: bName, count: 0 };
+        byBuilding[bId].count++;
+    }
+
+    return {
+        total: assets.length,
+        by_status: byStatus,
+        by_building: Object.values(byBuilding).sort((a, b) => b.count - a.count),
+    };
+};
+
+module.exports = { getAllAssets, getAssetById, createAsset, createBatchAssets, updateAsset, assignAsset, deleteAsset, getAssetStats };

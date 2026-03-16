@@ -96,6 +96,14 @@ const renewContract = async (req, res) => {
     } catch (err) { return handleError(res, err); }
 };
 
+// [GET] /api/contracts/stats
+const getContractStats = async (req, res) => {
+    try {
+        const stats = await contractService.getContractStats();
+        return res.status(200).json({ data: stats });
+    } catch (err) { return handleError(res, err); }
+};
+
 module.exports = {
     getAllContracts,
     getContractById,
@@ -103,5 +111,6 @@ module.exports = {
     updateContract,
     customerSign,
     managerSign,
-    renewContract
+    renewContract,
+    getContractStats
 };

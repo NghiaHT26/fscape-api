@@ -109,11 +109,21 @@ const updateRequestStatus = async (req, res) => {
     }
 };
 
+const getRequestStats = async (req, res) => {
+    try {
+        const stats = await requestService.getRequestStats(req.user);
+        return res.status(200).json({ data: stats });
+    } catch (err) {
+        return handleError(res, err);
+    }
+};
+
 module.exports = {
     getAllRequests,
     getMyRequests,
     getRequestById,
     createRequest,
     assignRequest,
-    updateRequestStatus
+    updateRequestStatus,
+    getRequestStats
 };

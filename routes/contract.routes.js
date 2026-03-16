@@ -15,6 +15,9 @@ router.get('/', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), contractContr
 // My contracts — RESIDENT / CUSTOMER
 router.get('/my', requireRoles(ROLES.RESIDENT, ROLES.CUSTOMER), contractController.getMyContracts);
 
+// Stats — must be before /:id
+router.get('/stats', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER), contractController.getContractStats);
+
 // Contract detail — ADMIN / BM / RESIDENT / CUSTOMER
 router.get('/:id', requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.RESIDENT, ROLES.CUSTOMER), validator.paramId, validate, contractController.getContractById);
 

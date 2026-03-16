@@ -495,6 +495,34 @@ const createBatchRooms = async ({
   }
 };
 
+// ─── GET /api/rooms/stats ────────────────────────────────────
+const getRoomStats = async () => {
+  const rooms = await Room.findAll({
+    attributes: ['status', 'building_id'],
+    include: [{ model: Building, as: 'building', attributes: ['id', 'name'] }],
+    raw: true,
+    nest: true,
+  });
+
+  const byStatus = { available: 0, occupied: 0, locked: 0 };
+  const byBuilding = {};
+
+  for (const r of rooms) {
+    const key = r.status.toLowerCase();
+    byStatus[key] = (byStatus[key] || 0) + 1;
+    const bName = r.building?.name || 'Khác';
+    const bId = r.building_id;
+    if (!byBuilding[bId]) byBuilding[bId] = { building_id: bId, name: bName, count: 0 };
+    byBuilding[bId].count++;
+  }
+
+  return {
+    total: rooms.length,
+    by_status: byStatus,
+    by_building: Object.values(byBuilding).sort((a, b) => b.count - a.count),
+  };
+};
+
 module.exports = {
   getAllRooms,
   getRoomById,
@@ -504,5 +532,6 @@ module.exports = {
   deleteRoom,
   toggleRoomStatus,
   getRoomsByBuilding,
-  getMyRooms
+  getMyRooms,
+  getRoomStats
 };

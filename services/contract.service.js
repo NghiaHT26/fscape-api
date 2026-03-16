@@ -79,7 +79,10 @@ const getAllContracts = async ({ page = 1, limit = 10, status, building_id, sear
     const where = {};
     const isAdmin = user.role === ROLES.ADMIN;
 
-    if (status) where.status = status;
+    if (status) {
+        const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+        where.status = statuses.length > 1 ? { [Op.in]: statuses } : statuses[0];
+    }
     if (search) {
         where[Op.or] = [
             { contract_number: { [Op.iLike]: `%${search}%` } }
@@ -873,6 +876,36 @@ const managerSign = async (contractId, signatureUrl, user, req) => {
     }
 };
 
+const getContractStats = async () => {
+    const contracts = await Contract.findAll({
+        attributes: ['status', 'room_id'],
+        include: [{
+            model: Room, as: 'room', attributes: ['id'],
+            include: [{ model: Building, as: 'building', attributes: ['id', 'name'] }]
+        }],
+        raw: true, nest: true,
+    });
+
+    const byStatus = {
+        pending_customer_signature: 0, pending_manager_signature: 0,
+        active: 0, expiring_soon: 0, finished: 0, terminated: 0,
+    };
+    const byBuilding = {};
+
+    for (const c of contracts) {
+        const key = c.status.toLowerCase();
+        if (byStatus[key] !== undefined) byStatus[key]++;
+        const bId = c.room?.building?.id;
+        const bName = c.room?.building?.name || 'Khác';
+        if (bId) {
+            if (!byBuilding[bId]) byBuilding[bId] = { building_id: bId, name: bName, count: 0 };
+            byBuilding[bId].count++;
+        }
+    }
+
+    return { total: contracts.length, by_status: byStatus, by_building: Object.values(byBuilding).sort((a, b) => b.count - a.count) };
+};
+
 module.exports = {
     getAllContracts,
     getContractById,
@@ -881,5 +914,6 @@ module.exports = {
     renewContract,
     customerSign,
     managerSign,
-    updateContract
+    updateContract,
+    getContractStats
 };
