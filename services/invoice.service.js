@@ -222,6 +222,84 @@ const generatePeriodicInvoices = async () => {
 
 // ── Query helpers ───────────────────────────────────────────────
 
+const { ROLES } = require('../constants/roles');
+
+const getAllInvoices = async (caller, { page = 1, limit = 10, status, invoice_type, building_id, search } = {}) => {
+    const { Invoice, Contract, Room, Building, User } = sequelize.models;
+
+    const where = {};
+    const contractWhere = {};
+    const roomInclude = {
+        model: Room, as: 'room', attributes: ['id', 'room_number', 'floor', 'building_id'],
+        include: [{ model: Building, as: 'building', attributes: ['id', 'name'] }],
+    };
+
+    if (status) {
+        const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+        where.status = statuses.length > 1 ? { [Op.in]: statuses } : statuses[0];
+    }
+    if (invoice_type) where.invoice_type = invoice_type;
+    if (search) where.invoice_number = { [Op.iLike]: `%${search}%` };
+
+    if (caller.role === ROLES.BUILDING_MANAGER) {
+        if (!caller.building_id) throw { status: 403, message: 'Building Manager chưa được gán tòa nhà.' };
+        roomInclude.where = { building_id: caller.building_id };
+        roomInclude.required = true;
+    } else if (building_id) {
+        roomInclude.where = { building_id };
+        roomInclude.required = true;
+    }
+
+    const { count, rows } = await Invoice.findAndCountAll({
+        where,
+        include: [
+            {
+                model: Contract, as: 'contract', attributes: ['id', 'contract_number', 'customer_id'],
+                where: Object.keys(contractWhere).length ? contractWhere : undefined,
+                include: [
+                    { model: User, as: 'customer', attributes: ['id', 'first_name', 'last_name', 'email'] },
+                    roomInclude,
+                ],
+            },
+        ],
+        limit: Number(limit),
+        offset: (page - 1) * Number(limit),
+        order: [['created_at', 'DESC']],
+    });
+
+    return { total: count, page: Number(page), limit: Number(limit), totalPages: Math.ceil(count / limit), data: rows };
+};
+
+const getInvoiceStats = async (caller) => {
+    const { Invoice, Contract, Room } = sequelize.models;
+
+    const include = [];
+    if (caller.role === ROLES.BUILDING_MANAGER) {
+        if (!caller.building_id) throw { status: 403, message: 'Building Manager chưa được gán tòa nhà.' };
+        include.push({
+            model: Contract, as: 'contract', attributes: [],
+            include: [{
+                model: Room, as: 'room', attributes: [],
+                where: { building_id: caller.building_id }, required: true,
+            }],
+            required: true,
+        });
+    }
+
+    const rows = await Invoice.findAll({ attributes: ['status', 'invoice_type'], include, raw: true });
+
+    const byStatus = {};
+    const byType = {};
+    for (const r of rows) {
+        const sk = r.status.toLowerCase();
+        byStatus[sk] = (byStatus[sk] || 0) + 1;
+        const tk = r.invoice_type.toLowerCase();
+        byType[tk] = (byType[tk] || 0) + 1;
+    }
+
+    return { total: rows.length, by_status: byStatus, by_type: byType };
+};
+
 const getMyInvoices = async (userId) => {
     const { Invoice, Contract, Room, Building } = sequelize.models;
 
@@ -244,28 +322,40 @@ const getMyInvoices = async (userId) => {
     });
 };
 
-const getInvoiceById = async (userId, invoiceId) => {
-    const { Invoice, Contract, InvoiceItem, Room } = sequelize.models;
+const getInvoiceById = async (caller, invoiceId) => {
+    const { Invoice, Contract, InvoiceItem, Room, Building, User } = sequelize.models;
+
+    const contractInclude = {
+        model: Contract, as: 'contract',
+        include: [
+            { model: User, as: 'customer', attributes: ['id', 'first_name', 'last_name', 'email', 'phone', 'avatar_url'] },
+            {
+                model: Room, as: 'room',
+                include: [{ model: Building, as: 'building', attributes: ['id', 'name'] }],
+            },
+        ],
+    };
+
+    if (caller.role === ROLES.RESIDENT || caller.role === ROLES.CUSTOMER) {
+        contractInclude.where = { customer_id: caller.id };
+    }
 
     const invoice = await Invoice.findOne({
         where: { id: invoiceId },
-        include: [
-            {
-                model: Contract,
-                as: 'contract',
-                where: { customer_id: userId },
-                include: [{ model: Room, as: 'room' }]
-            },
-            {
-                model: InvoiceItem,
-                as: 'items'
-            }
-        ]
+        include: [contractInclude, { model: InvoiceItem, as: 'items' }],
     });
 
     if (!invoice) {
         throw { status: 404, message: 'Không tìm thấy hóa đơn' };
     }
+
+    if (caller.role === ROLES.BUILDING_MANAGER) {
+        if (!caller.building_id) throw { status: 403, message: 'Building Manager chưa được gán tòa nhà.' };
+        if (invoice.contract?.room?.building_id !== caller.building_id) {
+            throw { status: 403, message: 'Bạn không có quyền truy cập hóa đơn này.' };
+        }
+    }
+
     return invoice;
 };
 
@@ -274,6 +364,8 @@ module.exports = {
     generatePeriodicInvoices,
     generateRentInvoices,
     generateServiceInvoices,
+    getAllInvoices,
+    getInvoiceStats,
     getMyInvoices,
     getInvoiceById
 };

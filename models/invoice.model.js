@@ -144,6 +144,7 @@ const Invoice = sequelize.define('Invoice', {
 
 Invoice.associate = (models) => {
   Invoice.belongsTo(models.Contract, { foreignKey: 'contract_id', as: 'contract' });
+  Invoice.hasMany(models.InvoiceItem, { foreignKey: 'invoice_id', as: 'items' });
   Invoice.hasMany(models.Payment, { foreignKey: 'invoice_id', as: 'payments' });
 };
 module.exports = Invoice;
