@@ -19,6 +19,7 @@ function createPaymentUrl(params) {
 
   const tmnCode = (process.env.VNP_TMN_CODE || "").trim();
   const returnUrl = (process.env.VNP_RETURN_URL || "").trim();
+  const ipnUrl = (process.env.VNP_IPN_URL || "").trim();
 
   let vnp_Params = {
     vnp_Version: "2.1.0",
@@ -34,6 +35,10 @@ function createPaymentUrl(params) {
     vnp_IpAddr: params.ipAddr,
     vnp_CreateDate: createDate
   };
+
+  if (ipnUrl) {
+    vnp_Params.vnp_IpnUrl = ipnUrl;
+  }
 
   vnp_Params = sortObject(vnp_Params);
 
@@ -56,12 +61,13 @@ function createPaymentUrl(params) {
   return paymentUrl;
 }
 function verifyIpnSignature(vnp_Params) {
-  const secureHash = vnp_Params["vnp_SecureHash"];
+  const params = { ...vnp_Params };
+  const secureHash = params["vnp_SecureHash"];
 
-  delete vnp_Params["vnp_SecureHash"];
-  delete vnp_Params["vnp_SecureHashType"];
+  delete params["vnp_SecureHash"];
+  delete params["vnp_SecureHashType"];
 
-  const sortedParams = sortObject(vnp_Params);
+  const sortedParams = sortObject(params);
 
   const signData = qs.stringify(sortedParams, { encode: true });
 
