@@ -77,7 +77,7 @@ connectDB().then(async () => {
     // Danh sách các model theo thứ tự phụ thuộc để tránh lỗi Foreign Key
     // const modelsToSync = [
     //   'Location', 'Facility', 'RoomType', 'AssetType',
-    //   'University', 'User', 'Building',
+    //   'Building', 'University', 'User',
     //   'BuildingImage', 'BuildingFacility', 'Room',
     //   'AuthProvider', 'CustomerProfile', 'RefreshToken', 'OtpCode', 'ContractTemplate',
     //   'RoomImage', 'Asset', 'RoomTypeAsset',
