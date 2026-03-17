@@ -19,7 +19,6 @@ function createPaymentUrl(params) {
 
   const tmnCode = (process.env.VNP_TMN_CODE || "").trim();
   const returnUrl = (process.env.VNP_RETURN_URL || "").trim();
-  const ipnUrl = (process.env.VNP_IPN_URL || "").trim();
 
   let vnp_Params = {
     vnp_Version: "2.1.0",
@@ -36,13 +35,9 @@ function createPaymentUrl(params) {
     vnp_CreateDate: createDate
   };
 
-  if (ipnUrl) {
-    vnp_Params.vnp_IpnUrl = ipnUrl;
-  }
-
   vnp_Params = sortObject(vnp_Params);
 
-  const signData = qs.stringify(vnp_Params, { encode: true });
+  const signData = qs.stringify(vnp_Params, { encode: false });
 
   const hashSecret = (process.env.VNP_HASH_SECRET || "").trim();
   const vnpUrl = (process.env.VNP_URL || "").trim();
@@ -52,7 +47,7 @@ function createPaymentUrl(params) {
 
   vnp_Params["vnp_SecureHash"] = signed;
 
-  const paymentUrl = vnpUrl + "?" + qs.stringify(vnp_Params, { encode: true });
+  const paymentUrl = vnpUrl + "?" + qs.stringify(vnp_Params, { encode: false });
 
   console.log("[VNPay Debug] signData:", signData);
   console.log("[VNPay Debug] ipAddr:", params.ipAddr);
@@ -69,7 +64,7 @@ function verifyIpnSignature(vnp_Params) {
 
   const sortedParams = sortObject(params);
 
-  const signData = qs.stringify(sortedParams, { encode: true });
+  const signData = qs.stringify(sortedParams, { encode: false });
 
   const hashSecret = (process.env.VNP_HASH_SECRET || "").trim();
   const hmac = crypto.createHmac("sha512", hashSecret);
