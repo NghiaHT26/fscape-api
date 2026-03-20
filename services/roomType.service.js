@@ -231,6 +231,26 @@ const replaceTemplateAssets = async (roomTypeId, items) => {
     }
 }
 
+// ─── GET /api/room-types/stats ──────────────────────────────
+const getRoomTypeStats = async () => {
+    const all = await RoomType.findAll({
+        attributes: ['is_active'],
+        raw: true,
+    })
+
+    let active = 0
+    let inactive = 0
+    for (const r of all) {
+        if (r.is_active) active++
+        else inactive++
+    }
+
+    return {
+        total: all.length,
+        by_status: { active, inactive },
+    }
+}
+
 module.exports = {
     getAllRoomTypes,
     getRoomTypeById,
@@ -238,5 +258,6 @@ module.exports = {
     updateRoomType,
     deleteRoomType,
     getTemplateAssets,
-    replaceTemplateAssets
+    replaceTemplateAssets,
+    getRoomTypeStats
 }

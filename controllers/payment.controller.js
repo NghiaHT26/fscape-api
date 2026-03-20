@@ -1,16 +1,7 @@
 const { sequelize } = require("../config/db");
 const paymentService = require("../services/payment.service");
 const { verifyIpnSignature } = require('../utils/vnpay');
-const getClientIp = (req) => {
-    let ip = req.headers['x-forwarded-for'] ||
-        req.connection.remoteAddress ||
-        req.socket.remoteAddress ||
-        req.connection.socket.remoteAddress || '127.0.0.1';
-    if (ip === '::1') ip = '127.0.0.1';
-    if (ip.startsWith('::ffff:')) ip = ip.substring(7);
-    if (ip.length > 15) ip = '127.0.0.1';
-    return ip;
-};
+const getClientIp = () => "127.0.0.1";
 
 const createBookingPaymentUrl = async (req, res) => {
     try {
@@ -40,19 +31,15 @@ const createInvoicePaymentUrl = async (req, res) => {
 
 const vnpayIpn = async (req, res) => {
     try {
+        console.log(`[VNPay IPN] ${new Date().toISOString()} from ${req.ip}`);
+        console.log('[VNPay IPN] Query:', JSON.stringify(req.query));
         const query = req.query;
-        console.log('[VNPay IPN] Received callback:', {
-            responseCode: query.vnp_ResponseCode,
-            txnRef: query.vnp_TxnRef,
-            amount: query.vnp_Amount,
-            transactionNo: query.vnp_TransactionNo
-        });
         const result = await paymentService.vnpayIpn(query);
         console.log('[VNPay IPN] Processed result:', result);
         return res.status(200).json(result);
     } catch (error) {
-        console.error('[VNPay IPN] Error:', error.message);
-        return res.status(500).json({ RspCode: '99', Message: 'Internal Server Error' });
+        console.error('[VNPay IPN] Error:', error.message, error.stack);
+        return res.status(200).json({ RspCode: '99', Message: 'Internal Server Error' });
     }
 };
 

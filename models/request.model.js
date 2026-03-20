@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const { REQUEST_SERVICE_BILLING_STATUS } = require('../constants/invoiceEnums');
 
 const Request = sequelize.define('Request', {
   id: {
@@ -114,6 +115,27 @@ const Request = sequelize.define('Request', {
   refund_approved_at: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+  service_billing_status: {
+    // Prevent duplicate billing for request/service fees.
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: REQUEST_SERVICE_BILLING_STATUS.UNBILLED,
+    validate: {
+      isIn: [Object.values(REQUEST_SERVICE_BILLING_STATUS)]
+    }
+  },
+  service_billed_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  service_billed_invoice_id: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    references: {
+      model: 'invoices',
+      key: 'id'
+    }
   }
 }, {
   tableName: 'requests',
@@ -164,6 +186,12 @@ const Request = sequelize.define('Request', {
       ]
     },
     {
+      name: "idx_requests_service_billing_status",
+      fields: [
+        { name: "service_billing_status" },
+      ]
+    },
+    {
       name: "requests_pkey",
       unique: true,
       fields: [
@@ -185,6 +213,7 @@ Request.associate = (models) => {
   Request.belongsTo(models.User, { foreignKey: 'assigned_staff_id', as: 'staff' });
   Request.belongsTo(models.Asset, { foreignKey: 'related_asset_id', as: 'asset' });
   Request.belongsTo(models.User, { foreignKey: 'refund_approved_by', as: 'refund_approver' });
+  Request.belongsTo(models.Invoice, { foreignKey: 'service_billed_invoice_id', as: 'service_billed_invoice' });
 
   Request.hasMany(models.RequestImage, { foreignKey: 'request_id', as: 'images', onDelete: 'CASCADE' });
   Request.hasMany(models.RequestStatusHistory, { foreignKey: 'request_id', as: 'status_history', onDelete: 'CASCADE' });

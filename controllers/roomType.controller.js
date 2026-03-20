@@ -76,6 +76,15 @@ const replaceTemplateAssets = async (req, res) => {
     }
 }
 
+const getRoomTypeStats = async (req, res) => {
+    try {
+        const stats = await roomTypeService.getRoomTypeStats()
+        return res.status(200).json({ data: stats })
+    } catch (err) {
+        return handleError(res, err)
+    }
+}
+
 module.exports = {
     getAllRoomTypes,
     getRoomTypeById,
@@ -83,5 +92,6 @@ module.exports = {
     updateRoomType,
     deleteRoomType,
     getTemplateAssets,
-    replaceTemplateAssets
+    replaceTemplateAssets,
+    getRoomTypeStats
 }

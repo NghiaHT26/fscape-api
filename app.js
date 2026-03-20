@@ -35,5 +35,7 @@ app.use('/api/inspections', require('./routes/inspection.routes'));
 app.use('/api/contracts', require('./routes/contract.routes'));
 app.use('/api/audit-logs', require('./routes/auditLog.routes'));
 app.use('/api/invoices', require('./routes/invoice.routes'));
+app.use('/api/settlements', require('./routes/settlement.routes'));
+app.use('/api/notifications', require('./routes/notification.routes'));
 app.use('/api/chatbot', require('./routes/chatbot.routes'));
 module.exports = app

@@ -63,6 +63,7 @@ const AssetInspection = sequelize.define('AssetInspection', {
 AssetInspection.associate = (models) => {
   AssetInspection.belongsTo(models.Room, { foreignKey: 'room_id', as: 'room' });
   AssetInspection.belongsTo(models.User, { foreignKey: 'performed_by', as: 'performer' });
+  AssetInspection.hasMany(models.AssetInspectionItem, { foreignKey: 'inspection_id', as: 'items' });
 };
 
 module.exports = AssetInspection;

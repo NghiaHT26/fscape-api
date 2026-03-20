@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const { PAYMENT_TYPE } = require('../constants/paymentEnums');
 const User = require('./user.model');
 const Invoice = require('./invoice.model');
 const Contract = require('./contract.model');
@@ -32,6 +33,15 @@ const Payment = sequelize.define('Payment', {
         key: 'id'
       }
     },
+    settlement_id: {
+      // Optional link when collecting/returning final settlement money.
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'settlements',
+        key: 'id'
+      }
+    },
     user_id: {
       type: DataTypes.UUID,
       allowNull: false,
@@ -45,7 +55,7 @@ const Payment = sequelize.define('Payment', {
       allowNull: false
     },
     payment_type: {
-      type: DataTypes.ENUM("DEPOSIT","RENT","REQUEST","REFUND"),
+      type: DataTypes.ENUM(...Object.values(PAYMENT_TYPE)),
       allowNull: false
     },
     status: {
@@ -96,6 +106,12 @@ const Payment = sequelize.define('Payment', {
         ]
       },
       {
+        name: "idx_payments_settlement_id",
+        fields: [
+          { name: "settlement_id" },
+        ]
+      },
+      {
         name: "idx_payments_status",
         fields: [
           { name: "status" },
@@ -127,6 +143,7 @@ Payment.associate = (models) => {
   Payment.belongsTo(models.User, { foreignKey: 'user_id', as: 'payer' });
   Payment.belongsTo(models.Invoice, { foreignKey: 'invoice_id', as: 'invoice' });
   Payment.belongsTo(models.Contract, { foreignKey: 'contract_id', as: 'contract' });
+  Payment.belongsTo(models.Settlement, { foreignKey: 'settlement_id', as: 'settlement' });
   Payment.hasOne(models.Booking, { foreignKey: 'deposit_payment_id', as: 'booking' });
 };
 module.exports = Payment;

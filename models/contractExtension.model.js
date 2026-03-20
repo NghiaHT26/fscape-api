@@ -62,4 +62,9 @@ const ContractExtension = sequelize.define('ContractExtension', {
     ]
   });
 
+ContractExtension.associate = (models) => {
+    ContractExtension.belongsTo(models.Contract, { foreignKey: 'contract_id', as: 'contract' });
+    ContractExtension.belongsTo(models.User, { foreignKey: 'approved_by', as: 'approver' });
+};
+
 module.exports = ContractExtension;

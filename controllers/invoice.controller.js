@@ -1,38 +1,61 @@
 const invoiceService = require('../services/invoice.service');
 
+const handleError = (res, err) => {
+    console.error('[InvoiceController]', err);
+    const status = err.status || 500;
+    const message = err.message || 'Internal Server Error';
+    return res.status(status).json({ message });
+};
+
 const triggerInvoiceJob = async (req, res) => {
     try {
         const count = await invoiceService.generatePeriodicInvoices();
         return res.status(200).json({ message: `Đã sinh thành công ${count} hóa đơn.` });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: 'Lỗi khi sinh hóa đơn' });
+    } catch (err) {
+        return handleError(res, err);
+    }
+};
+
+const getAllInvoices = async (req, res) => {
+    try {
+        const result = await invoiceService.getAllInvoices(req.user, req.query);
+        return res.status(200).json({ ...result });
+    } catch (err) {
+        return handleError(res, err);
+    }
+};
+
+const getInvoiceStats = async (req, res) => {
+    try {
+        const stats = await invoiceService.getInvoiceStats(req.user);
+        return res.status(200).json({ data: stats });
+    } catch (err) {
+        return handleError(res, err);
     }
 };
 
 const getMyInvoices = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const invoices = await invoiceService.getMyInvoices(userId);
+        const invoices = await invoiceService.getMyInvoices(req.user.id);
         return res.status(200).json({ data: invoices });
-    } catch (error) {
-        return res.status(500).json({ message: error.message || 'Lỗi khi lấy danh sách hóa đơn' });
+    } catch (err) {
+        return handleError(res, err);
     }
 };
 
 const getInvoiceById = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const { id } = req.params;
-        const invoice = await invoiceService.getInvoiceById(userId, id);
+        const invoice = await invoiceService.getInvoiceById(req.user, req.params.id);
         return res.status(200).json({ data: invoice });
-    } catch (error) {
-        return res.status(error.status || 500).json({ message: error.message || 'Lỗi khi lấy hóa đơn' });
+    } catch (err) {
+        return handleError(res, err);
     }
 };
 
 module.exports = {
     triggerInvoiceJob,
+    getAllInvoices,
+    getInvoiceStats,
     getMyInvoices,
     getInvoiceById
 };

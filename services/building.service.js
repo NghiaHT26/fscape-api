@@ -9,6 +9,14 @@ const University = require('../models/university.model');
 const Room = require('../models/room.model');
 const RoomType = require('../models/roomType.model');
 const User = require('../models/user.model');
+const Contract = require('../models/contract.model');
+const Booking = require('../models/booking.model');
+
+const ACTIVE_CONTRACT_STATUSES = [
+    'DRAFT', 'PENDING_CUSTOMER_SIGNATURE', 'PENDING_MANAGER_SIGNATURE',
+    'ACTIVE', 'EXPIRING_SOON'
+];
+const ACTIVE_BOOKING_STATUSES = ['PENDING', 'DEPOSIT_PAID'];
 
 const getAllBuildings = async ({ page = 1, limit = 10, location_id, search, is_active } = {}, user) => {
     const offset = (page - 1) * limit;
@@ -250,6 +258,37 @@ const toggleBuildingStatus = async (id, isActive, user) => {
 
     if (building.is_active === isActive) {
         throw { status: 400, message: `Building is already ${isActive ? 'active' : 'inactive'}` }
+    }
+
+    // Block disabling if building has active contracts or bookings
+    if (!isActive) {
+        const roomIds = (await Room.findAll({
+            where: { building_id: id },
+            attributes: ['id'],
+            raw: true
+        })).map(r => r.id);
+
+        if (roomIds.length > 0) {
+            const activeContracts = await Contract.count({
+                where: { room_id: { [Op.in]: roomIds }, status: { [Op.in]: ACTIVE_CONTRACT_STATUSES } }
+            });
+            if (activeContracts > 0) {
+                throw {
+                    status: 409,
+                    message: `Không thể vô hiệu hóa tòa nhà. Hiện có ${activeContracts} hợp đồng đang hoạt động.`
+                };
+            }
+
+            const activeBookings = await Booking.count({
+                where: { room_id: { [Op.in]: roomIds }, status: { [Op.in]: ACTIVE_BOOKING_STATUSES } }
+            });
+            if (activeBookings > 0) {
+                throw {
+                    status: 409,
+                    message: `Không thể vô hiệu hóa tòa nhà. Hiện có ${activeBookings} đặt phòng đang chờ xử lý.`
+                };
+            }
+        }
     }
 
     building.is_active = isActive

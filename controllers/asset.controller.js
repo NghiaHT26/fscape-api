@@ -63,4 +63,11 @@ const deleteAsset = async (req, res) => {
     } catch (err) { return handleError(res, err); }
 };
 
-module.exports = { getAllAssets, getAssetById, createAsset, createBatchAssets, updateAsset, assignAsset, deleteAsset };
+const getAssetStats = async (req, res) => {
+    try {
+        const stats = await assetService.getAssetStats();
+        return res.status(200).json({ data: stats });
+    } catch (err) { return handleError(res, err); }
+};
+
+module.exports = { getAllAssets, getAssetById, createAsset, createBatchAssets, updateAsset, assignAsset, deleteAsset, getAssetStats };
