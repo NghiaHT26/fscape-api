@@ -7,6 +7,8 @@ const { ROLES } = require('../constants/roles');
 
 router.post('/', authJwt, requireRoles(ROLES.CUSTOMER, ROLES.RESIDENT), bookingController.createBooking);
 
+router.get('/all', authJwt, requireRoles(ROLES.ADMIN, ROLES.BUILDING_MANAGER, ROLES.STAFF), bookingController.getAllBookings);
+
 router.get('/my', authJwt, requireRoles(ROLES.CUSTOMER, ROLES.RESIDENT), bookingController.getMyBookings);
 
 router.get('/:id', authJwt, bookingController.getBookingById);

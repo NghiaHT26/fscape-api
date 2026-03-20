@@ -29,6 +29,20 @@ const createBooking = async (req, res) => {
     }
 };
 
+const getAllBookings = async (req, res) => {
+    try {
+        const bookings = await bookingService.getAllBookings();
+
+        return res.status(200).json({
+            data: bookings
+        });
+    } catch (error) {
+        return res.status(error.status || 500).json({
+            message: error.message || 'Internal Server Error'
+        });
+    }
+};
+
 const getMyBookings = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -62,6 +76,7 @@ const getBookingById = async (req, res) => {
 
 module.exports = {
     createBooking,
+    getAllBookings,
     getMyBookings,
     getBookingById
 };
